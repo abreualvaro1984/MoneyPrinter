@@ -484,6 +484,12 @@ Solution: [See how to download the model manually from Hugging Face](#subtitle-g
 
 </details>
 
+## MoneyPrinter Panel (multi-niche factory)
+
+Personal Django control plane for niches → YouTube research → Create/Clip/Dub → per-channel upload.
+
+See [`panel/README.md`](panel/README.md). Quick start (WSL): `bash start_panel_wsl.sh` → http://127.0.0.1:8000/admin/
+
 ## Feedback & Suggestions 📢
 
 - You can submit an [issue](https://github.com/harry0703/MoneyPrinterTurbo/issues) or a [pull request](https://github.com/harry0703/MoneyPrinterTurbo/pulls).
