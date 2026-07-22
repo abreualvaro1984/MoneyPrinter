@@ -2,6 +2,10 @@
 /config.toml
 /config.toml.bak
 /storage/
+/panel/.env
+/panel/db.sqlite3
+/panel/**/credentials/
+*.secret.json
 /.idea/
 /app/services/__pycache__
 /app/__pycache__/
@@ -35,6 +39,8 @@ debug_*.py
 test_*.py
 !test/services/test_*.py
 !test/test_*.py
+!panel/**/tests/test_*.py
+!panel/**/tests/**/test_*.py
 streamlit.log
 .coverage
 coverage.xml

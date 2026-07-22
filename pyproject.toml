@@ -43,6 +43,15 @@ dependencies = [
 twelvelabs = [
     "twelvelabs>=1.2.8",
 ]
+# Painel Django multi-nicho (Create / Clip / Dub / YouTube).
+panel = [
+    "django>=5.1,<6",
+    "django-environ>=0.11.2",
+    "google-api-python-client>=2.160.0",
+    "google-auth-oauthlib>=1.2.1",
+    "google-auth-httplib2>=0.2.0",
+    "yt-dlp>=2025.1.15",
+]
 
 [dependency-groups]
 dev = [
