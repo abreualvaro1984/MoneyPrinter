@@ -8,7 +8,7 @@ Provide a video <b>topic</b> or <b>keyword</b>, and MoneyPrinterTurbo will gener
 
 [![Version](https://img.shields.io/github/v/release/harry0703/MoneyPrinterTurbo?color=blue&label=version)](https://github.com/harry0703/MoneyPrinterTurbo/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
-[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Downloads](https://img.shields.io/github/downloads/harry0703/MoneyPrinterTurbo/total)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
 
 <a href="https://trendshift.io/repositories/8731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8731" alt="harry0703%2FMoneyPrinterTurbo | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
@@ -173,7 +173,7 @@ All examples below were generated with MoneyPrinterTurbo.
 ## System Requirements 📦
 
 - Recommended platforms: Windows 10+, macOS 11+, or a mainstream Linux distribution
-- Local deployment requires Python 3.11 or later; Python 3.11 is recommended
+- Local deployment requires Python 3.14 or later; Python 3.14 is recommended
 - A GPU is not required, but it is recommended if you want faster local transcription, faster video processing, or smoother batch generation
 
 | Item | Minimum      | Recommended  | Optimal    |
@@ -227,7 +227,7 @@ Use the local setup or Docker instructions below.
 
 ### Prerequisites
 
-- Local deployment requires Python 3.11 or later
+- Local deployment requires Python 3.14 or later
 - On Windows, avoid project paths containing non-ASCII characters, special characters, or spaces
 
 #### ① Clone the Project
@@ -271,19 +271,19 @@ Open your browser and visit http://127.0.0.1:8080/docs or http://127.0.0.1:8080/
 
 #### ① Create a Python Virtual Environment
 
-Use [uv](https://docs.astral.sh/uv/) to manage the Python environment and dependencies. The project supports Python 3.11 or later; the example below uses Python 3.11.
+Use [uv](https://docs.astral.sh/uv/) to manage the Python environment and dependencies. The project supports Python 3.14 or later; the example below uses Python 3.14.
 
 ```shell
 git clone https://github.com/harry0703/MoneyPrinterTurbo.git
 cd MoneyPrinterTurbo
-uv python install 3.11
+uv python install 3.14
 uv sync --frozen
 ```
 
 If you are not using `uv` yet, you can still use `venv + pip`.
 
 ```shell
-python3.11 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```

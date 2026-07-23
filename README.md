@@ -8,7 +8,7 @@
 
 [![Version](https://img.shields.io/github/v/release/harry0703/MoneyPrinterTurbo?color=blue&label=version)](https://github.com/harry0703/MoneyPrinterTurbo/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
-[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Downloads](https://img.shields.io/github/downloads/harry0703/MoneyPrinterTurbo/total)](https://github.com/harry0703/MoneyPrinterTurbo/releases/latest)
 
 <a href="https://trendshift.io/repositories/8731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8731" alt="harry0703%2FMoneyPrinterTurbo | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
@@ -172,7 +172,7 @@
 ## 配置要求 📦
 
 - 建议系统：Windows 10、macOS 11.0 或更高版本，以及主流 Linux 发行版
-- 本地部署需要 Python 3.11 或更高版本，推荐使用 Python 3.11
+- 本地部署需要 Python 3.14 或更高版本，推荐使用 Python 3.14
 - GPU 不是必需项，但如果你希望本地转录、更快的视频处理或更顺畅的批量生成体验，建议使用带显存的独立显卡
 
 | 项目 | 最低配置 | 推荐配置        | 理想配置        |
@@ -222,7 +222,7 @@
 
 ### 前提条件
 
-- 本地部署需要 Python 3.11 或更高版本
+- 本地部署需要 Python 3.14 或更高版本
 - Windows 用户建议避免使用包含中文、特殊字符或空格的项目路径
 
 #### ① 克隆代码
@@ -272,19 +272,19 @@ docker compose -f docker-compose.release.yml up
 
 #### ① 创建虚拟环境
 
-推荐使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境和依赖。项目支持 Python 3.11 或更高版本，以下示例使用 Python 3.11。
+推荐使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境和依赖。项目支持 Python 3.14 或更高版本，以下示例使用 Python 3.14。
 
 ```shell
 git clone https://github.com/harry0703/MoneyPrinterTurbo.git
 cd MoneyPrinterTurbo
-uv python install 3.11
+uv python install 3.14
 uv sync --frozen
 ```
 
 如果你暂时不使用 `uv`，也可以继续使用 `venv + pip`
 
 ```shell
-python3.11 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```

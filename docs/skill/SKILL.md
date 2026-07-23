@@ -59,7 +59,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Use this foreground command with `workdir=SKILL_DIR` and a timeout of at least 20 minutes:
 
 ```bash
-uv run --no-project --python 3.11 python mpt_agent.py --subject "<video topic>"
+uv run --no-project --python 3.14 python mpt_agent.py --subject "<video topic>"
 ```
 
 On Windows, do not try absolute backslash paths, absolute forward-slash paths, or copies in the workspace before this relative command. If a terminal tool reports `referenced_script_path_missing`, verify that its working directory is exactly `SKILL_DIR` and retry the relative command once. Do not cycle through path variants.

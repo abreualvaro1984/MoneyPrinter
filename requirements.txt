@@ -1,22 +1,22 @@
 # Keep legacy pip install support; primary deps moved to pyproject.toml / uv.lock.
 moviepy==2.2.1
-streamlit==1.59.1
+streamlit==1.60.0
 streamlit-tour==1.1.0
-edge_tts==7.2.7
-fastapi==0.136.3
-uvicorn==0.32.1
-openai==2.24.0
-faster-whisper==1.1.0
+edge_tts==7.2.8
+fastapi==0.139.2
+uvicorn==0.51.0
+openai==2.47.0
+faster-whisper==1.2.1
 loguru==0.7.3
-google-genai==2.11.0
-dashscope==1.20.14
-azure-cognitiveservices-speech==1.41.1
-redis==5.2.0
-python-multipart==0.0.27
+dashscope==1.26.4
+azure-cognitiveservices-speech==1.51.0
+redis==8.0.1
+python-multipart==0.0.32
 pyyaml==6.0.3
-requests==2.33.1
-packaging==24.2
+requests==2.34.2
+packaging==26.2
 socksio==1.0.0
 pydub==0.25.1
-audioop-lts==0.2.2; python_version >= "3.13"
-litellm==1.86.2
+audioop-lts==0.2.2; python_version >= '3.13'
+litellm==1.93.0
+google-genai==2.13.0
