@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from panel.niches.models import Niche
 from panel.publishing.catalog import PLATFORM_SPECS
 from panel.publishing.models import SocialAccount
-from panel.ui.models import LlmCredential
+from panel.ui.models import LlmCredential, YoutubeDataApiKey
 from panel.ui.services.providers import (
     apply_provider_defaults,
     get_panel_preset,
@@ -69,6 +69,42 @@ class TrendSearchForm(forms.Form):
         required=False,
         empty_label="Padrão (credencial ★ / config.toml)",
     )
+
+
+class YoutubeDataApiKeyForm(forms.ModelForm):
+    """API key YouTube Data API v3 — digitada na UI do usuário."""
+
+    class Meta:
+        model = YoutubeDataApiKey
+        fields = ("api_key",)
+        widgets = {
+            "api_key": forms.PasswordInput(
+                render_value=True,
+                attrs={
+                    "placeholder": "AIza…",
+                    "autocomplete": "off",
+                    "spellcheck": "false",
+                },
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["api_key"].label = "YouTube API key"
+        self.fields["api_key"].required = False
+        self.fields["api_key"].help_text = (
+            "YouTube Data API v3 (costuma começar com AIza…). "
+            "Não use GOCSPX- (isso é client secret OAuth)."
+        )
+
+    def clean_api_key(self) -> str:
+        key = (self.cleaned_data.get("api_key") or "").strip()
+        if key.upper().startswith("GOCSPX"):
+            raise forms.ValidationError(
+                "Isso é client secret OAuth (GOCSPX-…), não API key. "
+                "Em Google Cloud → Credenciais → Create credentials → API key."
+            )
+        return key
 
 
 class LlmCredentialForm(forms.ModelForm):
@@ -164,12 +200,25 @@ class SocialAccountForm(forms.ModelForm):
 
 
 class NicheDiscoverForm(forms.Form):
+    video_format = forms.ChoiceField(
+        label="Tipo de vídeo que você quer produzir",
+        choices=(),  # preenchido no __init__
+        initial="dark",
+        help_text="Dark, dormir, tela preta, ambiente, aparecendo… A IA valida o fit de cada sugestão.",
+    )
     llm_credential = forms.ModelChoiceField(
         queryset=LlmCredential.objects.filter(is_active=True),
         label="IA",
         required=False,
         empty_label="Padrão",
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from panel.ui.services.video_formats import VIDEO_FORMAT_CHOICES
+
+        self.fields["video_format"].choices = VIDEO_FORMAT_CHOICES
+
 
 
 class ScriptGenerateForm(forms.Form):

@@ -19,6 +19,8 @@ env = environ.Env(
     PANEL_DEFAULT_ASPECT=(str, "9:16"),
     PANEL_DEFAULT_VIDEO_SOURCE=(str, "pexels"),
     GPTZERO_API_KEY=(str, ""),
+    GEMINI_API_KEY=(str, ""),
+    GEMINI_DETECT_MODEL=(str, "gemini-2.0-flash"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -106,6 +108,8 @@ LOGIN_REDIRECT_URL = "ui:home"
 LOGOUT_REDIRECT_URL = "login"
 
 GPTZERO_API_KEY = env("GPTZERO_API_KEY")
+GEMINI_API_KEY = env("GEMINI_API_KEY")
+GEMINI_DETECT_MODEL = env("GEMINI_DETECT_MODEL")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = REPO_ROOT / "storage" / "panel"

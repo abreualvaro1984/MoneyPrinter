@@ -2,9 +2,11 @@
 
 Fonte da verdade do produto. Ao concluir uma entrega, marque `[x]` e atualize a data.
 
+**Última sync:** 2026-07-23 — YouTube key na UI `/apis/` (banco + Testar); anti-IA Gemini; nichos com sinais YT.
+
 **Decisões:** UI Django + HTMX (tema escuro colorido) · MVP = itens 1 + 5 · áreas separadas (nunca um botão único “fazer tudo”).
 
-Contexto permanente dos agentes: [`agents/`](agents/).
+Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-panel/SKILL.md`](.cursor/skills/moneyprinter-panel/SKILL.md)
 
 ---
 
@@ -13,6 +15,7 @@ Contexto permanente dos agentes: [`agents/`](agents/).
 - [x] `roadmap.md` criado
 - [x] Pasta `agents/` com papéis documentados
 - [x] Regra Cursor `.cursor/rules/moneyprinter-context.mdc` (alwaysApply)
+- [x] Skill do painel `.cursor/skills/moneyprinter-panel/SKILL.md`
 
 ---
 
@@ -44,7 +47,7 @@ Contexto permanente dos agentes: [`agents/`](agents/).
 
 - [x] Gerar roteiro a partir de trend/tema + briefing do nicho (tom humano PT-BR)
 - [x] Editar / versionar rascunhos no painel
-- [x] Score anti-IA (GPTZero via `GPTZERO_API_KEY` ou heurística local) exibido no card
+- [x] Score anti-IA (Gemini / Google AI Studio; fallback GPTZero ou heurística local) exibido no card
 - [x] Regenerar se score indicar texto “muito IA”
 
 ---
@@ -76,15 +79,20 @@ Contexto permanente dos agentes: [`agents/`](agents/).
 - [x] Modelo `SocialAccount` com FK opcional para `Niche` (`panel/publishing`)
 - [x] UI amigável de contas + tutorial por plataforma (`/contas/`)
 - [x] Descoberta de nichos/subnichos pela IA com botão Add (SQLite)
+- [x] Descoberta ancorada em sinais reais YouTube (mostPopular BR + buscas recentes por views)
+- [x] Filtro de **formato de vídeo** na descoberta (dark / dormir / tela preta / ambiente / aparecendo / híbrido / tela / qualquer) com validação da IA
+- [x] YouTube API key digitável na UI `/apis/` (banco; `.env` só fallback)
+- [x] Botão **Testar** YouTube API key (chamada barata mostPopular BR)
 - [x] Cadastro de API de IA só com key (ChatGPT, Gemini, Kimi, DeepSeek, Z.AI)
 - [x] Botão Testar API (prompt mínimo) no cadastro/lista de IAs
+- [x] Skill Cursor do painel (`.cursor/skills/moneyprinter-panel/`)
 
 ---
 
 ## Item 7 — UI gráfica + SEO (contínuo)
 
 - [x] Shell dark colorido (Fase 1)
-- [x] Layout mobile-first (menu drawer, tabelas scroll, touch targets)
+- [x] Overlay “IA pensando” com botão **Parar / cancelar** (Esc também cancela)
 - [ ] Polish visual, motion leve, acessibilidade
 - [ ] SEO contínuo nas páginas públicas/operacionais
 
@@ -100,5 +108,6 @@ Contexto permanente dos agentes: [`agents/`](agents/).
 ## Critério MVP “feito”
 
 - [x] Trends YT ponta a ponta na UI
-- [x] Roteiro gerado + editável + score anti-IA
+- [x] Roteiro gerado + editável + score anti-IA (Gemini)
+- [x] Nichos com sinais reais YouTube + API key na UI
 - [x] Checks deste arquivo atualizados a cada entrega

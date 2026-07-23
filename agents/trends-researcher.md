@@ -9,6 +9,8 @@ Descobrir o que está **quente em views** para um nicho e devolver temas com rec
 - Nicho (obrigatório)
 - Plataformas
 - Credencial de IA (`LlmCredential`) escolhida na UI — várias keys permitidas
+- YouTube Data API key em `/apis/` (banco; prioridade sobre `.env`; botão **Testar**)
+- Formato de vídeo (dark / dormir / tela preta / ambiente / aparecendo / …)
 
 ## Saídas
 
@@ -18,16 +20,21 @@ Descobrir o que está **quente em views** para um nicho e devolver temas com rec
 ## Fontes
 
 1. **YouTube** — search `order=viewCount` + `videos.list` statistics; ordenar por views reais.
-2. **Outras** — heuristic sem inventar métricas.
+2. **Descoberta de nichos** — `videos.list(chart=mostPopular, regionCode=BR)` + buscas recentes por views; a IA só agrupa evidências (`panel/ui/services/niches_discover.py`).
+3. **Formato de vídeo** — usuário escolhe em `/nichos/`: dark, sleep (dormir), blackscreen (tela preta), ambient, face, hybrid, screen, any. Seeds + prompt + `format_fit`/`format_ok` em `video_formats.py`.
+4. **Outras** — heuristic sem inventar métricas.
 
-## Agentes: vale a pena?
+## Credenciais YouTube
 
-- **Sim para contexto Cursor** — este arquivo + `agents/` (já existe).
-- **Runtime multi-agent (researcher → critic → ranker):** útil depois, quando volume crescer. Hoje um único prompt estruturado com views reais + add/skip é o melhor custo/benefício.
-- Não criar orquestração multi-agente só por moda — só se a qualidade do add/skip degradar.
+- UI `/apis/` → modelo `YoutubeDataApiKey` (singleton).
+- Resolve: `panel/channels/youtube.py` → `resolve_youtube_api_key()` (db → env).
+- Validação: `panel/ui/services/youtube_test.py` (mostPopular BR, 1 item).
+- Não aceitar `GOCSPX-` (client secret OAuth).
 
 ## Código
 
 - `panel/ui/services/trends.py`
+- `panel/ui/services/niches_discover.py`
 - `panel/ui/services/llm_runtime.py`
-- UI: `/trends/`, `/apis/`
+- `panel/channels/youtube.py`
+- UI: `/trends/`, `/nichos/`, `/apis/`

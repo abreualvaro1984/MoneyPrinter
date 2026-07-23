@@ -11,16 +11,21 @@
 </article>
 
 <article class="card" style="margin-bottom:1.25rem;">
-  <h2>Pesquisar subnichos com IA</h2>
-  <p class="muted">Depois de escolher o nicho, a IA sugere ângulos mais específicos.</p>
+  <h2>Pesquisar subnichos em alta</h2>
+  <p class="muted">Busca vídeos recentes com mais views neste tema e a IA só fatiar com base nisso.</p>
   <form
     method="post"
     action="{% url 'ui:niches_discover_subs' niche.pk %}"
     class="form-stack js-ai-wait"
-    data-wait-title="Pesquisando subnichos com a IA…"
-    data-wait-sub="Explorando ângulos do nicho. Aguarde alguns segundos."
+    data-wait-title="Coletando vídeos do nicho no YouTube…"
+    data-wait-sub="Buscando por views recentes e pedindo à IA para extrair subnichos. Use Parar para cancelar."
   >
     {% csrf_token %}
+    <div>
+      <label for="id_video_format">{{ form.video_format.label }}</label>
+      {{ form.video_format }}
+      {% if form.video_format.help_text %}<p class="muted">{{ form.video_format.help_text }}</p>{% endif %}
+    </div>
     <div>
       <label for="id_llm_credential">{{ form.llm_credential.label }}</label>
       {{ form.llm_credential }}

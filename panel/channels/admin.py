@@ -11,10 +11,36 @@ from . import youtube as youtube_service
 
 @admin.register(YouTubeChannel)
 class YouTubeChannelAdmin(admin.ModelAdmin):
+    change_form_template = "admin/channels/youtubechannel/change_form.html"
     list_display = ("niche", "title", "channel_id", "status", "oauth_link", "updated_at")
     list_filter = ("status",)
     search_fields = ("title", "channel_id", "niche__name")
     readonly_fields = ("status", "title", "channel_id", "connected_at", "last_error", "token_json")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("niche",),
+                "description": (
+                    "Conecte o canal criador via OAuth (upload). "
+                    "Para pesquisa de nichos/trends, cadastre a API key em /apis/."
+                ),
+            },
+        ),
+        (
+            "Status do canal",
+            {
+                "fields": (
+                    "status",
+                    "title",
+                    "channel_id",
+                    "connected_at",
+                    "last_error",
+                    "token_json",
+                ),
+            },
+        ),
+    )
 
     def oauth_link(self, obj: YouTubeChannel) -> str:
         url = reverse("admin:channels_youtubechannel_oauth", args=[obj.pk])

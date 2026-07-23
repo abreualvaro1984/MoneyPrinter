@@ -15,7 +15,7 @@ Escrever roteiros **humanos** em pt-BR a partir de um tema/trend + briefing do n
 - Título sugerido
 - Roteiro completo (falado / narração)
 - Hooks, CTA, hashtags sugeridas
-- Score anti-IA + status (pass / review / regen)
+- Score anti-IA via Gemini (Google AI Studio; fallback GPTZero ou heurística) + status (pass / review / regen)
 
 ## Estilo
 
@@ -24,8 +24,9 @@ Escrever roteiros **humanos** em pt-BR a partir de um tema/trend + briefing do n
 
 ## Anti-IA
 
-- API configurável (`GPTZERO_API_KEY` ou similar em `panel/.env`).
-- Sem chave: heurística local simples + aviso “detector não configurado”.
+- Principal: Google AI Studio (Gemini) via `GEMINI_API_KEY` em `panel/.env` ou credencial Gemini ativa em `/apis/`.
+- Modelo default: `gemini-2.0-flash` (`GEMINI_DETECT_MODEL`). Key: https://aistudio.google.com/app/apikey
+- Fallback opcional: `GPTZERO_API_KEY`; sem nenhum dos dois: heurística local + aviso.
 - Score alto de IA → oferecer regenerar com prompt anti-detecção.
 
 ## UI

@@ -44,7 +44,7 @@ def run_trends(
                     {
                         "platform": "youtube",
                         "status": "empty",
-                        "detail": "Nenhum candidato YouTube (verifique YOUTUBE_API_KEY / OAuth).",
+                        "detail": "Nenhum candidato YouTube (cadastre a API key em /apis/ ou OAuth).",
                     }
                 )
         except Exception as exc:

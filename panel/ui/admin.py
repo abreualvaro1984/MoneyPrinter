@@ -35,8 +35,8 @@ class LlmCredentialAdmin(admin.ModelAdmin):
 
 @admin.register(NicheDiscoveryRun)
 class NicheDiscoveryRunAdmin(admin.ModelAdmin):
-    list_display = ("id", "kind", "parent_niche", "created_at")
-    list_filter = ("kind",)
+    list_display = ("id", "kind", "video_format", "parent_niche", "created_at")
+    list_filter = ("kind", "video_format")
     readonly_fields = ("created_at",)
 
 

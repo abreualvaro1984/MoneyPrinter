@@ -2,20 +2,70 @@
 {% block content %}
 <header class="page-head">
   <h1>
-    {% if run.kind == "sub" %}Subnichos de {{ run.parent_niche }}{% else %}Nichos sugeridos{% endif %}
+    {% if run.kind == "sub" %}Subnichos de {{ run.parent_niche }}{% else %}Nichos em alta{% endif %}
     #{{ run.id }}
   </h1>
-  <p>{{ run.summary_pt|default:"Sugestões da IA. Clique em Add para salvar no SQLite." }}</p>
+  <p>{{ run.summary_pt|default:"Sugestões ancoradas em sinais do YouTube. Clique em Add para salvar no SQLite." }}</p>
+  {% if video_format %}
+  <p class="muted">Formato filtrado: <strong>{{ video_format.label }}</strong> — {{ video_format.short }}</p>
+  {% endif %}
 </header>
+
+{% with signals=run.signals_json %}
+{% if signals %}
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Sinais reais usados</h2>
+  <p class="muted">
+    Fonte: YouTube
+    · status <span class="badge {% if signals.status == 'ok' %}ok{% elif signals.status == 'partial' %}warn{% else %}danger{% endif %}">{{ signals.status }}</span>
+    · região {{ signals.region|default:"BR" }}
+    · {{ signals.videos|length }} vídeos
+    {% if signals.video_format_label %}· formato {{ signals.video_format_label }}{% endif %}
+    {% if signals.published_after %}· publicados após {{ signals.published_after|slice:":10" }}{% endif %}
+  </p>
+  {% if signals.errors %}
+  <p class="muted">Avisos: {{ signals.errors|join:" · "|truncatechars:240 }}</p>
+  {% endif %}
+  {% if signals.videos %}
+  <div class="topic-list" style="margin-top:0.75rem;">
+    {% for v in signals.videos|slice:":8" %}
+    <div class="muted" style="font-size:0.88rem;">
+      <span class="badge">{{ v.view_count }} views</span>
+      <span class="badge">{{ v.source }}</span>
+      {% if v.url %}<a href="{{ v.url }}" target="_blank" rel="noopener">{{ v.title|truncatechars:90 }}</a>{% else %}{{ v.title|truncatechars:90 }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Nenhum vídeo coletado — cadastre a YouTube API key em <a href="{% url 'ui:apis_index' %}">APIs</a>.</p>
+  {% endif %}
+</article>
+{% endif %}
+{% endwith %}
 
 <div class="grid">
   {% for s in suggestions %}
   <article class="card">
-    <span class="badge">heat {{ s.heat_score }}</span>
+    <span class="badge ok">heat {{ s.heat_score }}</span>
+    {% if s.format_fit %}<span class="badge">fit {{ s.format_fit }}</span>{% endif %}
     <h3>{{ s.name }}</h3>
     <p class="muted">{{ s.why }}</p>
+    {% if s.format_notes %}
+    <p class="muted" style="font-size:0.9rem;"><strong>Formato:</strong> {{ s.format_notes }}</p>
+    {% endif %}
     {% if s.keywords %}
     <p class="muted">{% for k in s.keywords %}<span class="badge">{{ k }}</span> {% endfor %}</p>
+    {% endif %}
+    {% if s.evidence %}
+    <p class="muted" style="margin-top:0.5rem;"><strong>Evidências:</strong></p>
+    <ul class="muted" style="margin:0.25rem 0 0; padding-left:1.1rem; font-size:0.88rem;">
+      {% for e in s.evidence %}
+      <li>
+        {% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title|truncatechars:70 }}</a>{% else %}{{ e.title|truncatechars:70 }}{% endif %}
+        {% if e.view_count %} · {{ e.view_count }} views{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
     {% endif %}
     <form method="post" action="{% url 'ui:niches_add_suggestion' run.pk %}" style="margin-top:0.75rem;">
       {% csrf_token %}

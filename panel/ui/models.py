@@ -5,6 +5,44 @@ from django.db import models
 from panel.niches.models import Niche
 
 
+class YoutubeDataApiKey(models.Model):
+    """
+    API key da YouTube Data API v3 (pesquisa / trends / nichos).
+    Singleton (pk=1) — o usuário edita na UI /apis/, não no .env.
+    """
+
+    api_key = models.TextField("YouTube API key", blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "YouTube Data API key"
+        verbose_name_plural = "YouTube Data API keys"
+
+    def __str__(self) -> str:
+        return "YouTube Data API key"
+
+    @classmethod
+    def get_solo(cls) -> YoutubeDataApiKey:
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def get_api_key(cls) -> str:
+        try:
+            return (cls.get_solo().api_key or "").strip()
+        except Exception:
+            return ""
+
+    @property
+    def api_key_masked(self) -> str:
+        key = (self.api_key or "").strip()
+        if not key:
+            return ""
+        if len(key) <= 8:
+            return "••••"
+        return f"{key[:4]}…{key[-4:]}"
+
+
 class LlmCredential(models.Model):
     """API key de IA cadastrada no painel (várias por provider)."""
 
@@ -85,6 +123,18 @@ class NicheDiscoveryRun(models.Model):
     )
     summary_pt = models.TextField(blank=True)
     suggestions_json = models.JSONField(default=list, blank=True)
+    signals_json = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Sinais brutos do YouTube (trending/buscas) usados na descoberta.",
+    )
+    video_format = models.CharField(
+        "Formato de vídeo",
+        max_length=20,
+        default="dark",
+        blank=True,
+        help_text="dark | sleep | blackscreen | ambient | face | hybrid | screen | any",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

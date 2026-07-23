@@ -2,24 +2,32 @@
 {% block content %}
 <header class="page-head">
   <h1>Nichos</h1>
-  <p>Você não precisa saber os melhores nichos: a IA pesquisa e sugere. Tudo salvo no SQLite local.</p>
+  <p>
+    Escolha o <strong>tipo de vídeo</strong>: dark, canal para dormir, tela preta,
+    ambiente, aparecendo, etc. A IA só sugere nichos compatíveis com esse formato.
+  </p>
 </header>
 
 <article class="card" style="margin-bottom:1.25rem;">
-  <h2>Pesquisar nichos importantes</h2>
+  <h2>Pesquisar nichos em alta agora</h2>
   <form
     method="post"
     action="{% url 'ui:niches_discover' %}"
     class="form-stack js-ai-wait"
-    data-wait-title="Pesquisando nichos com a IA…"
-    data-wait-sub="Analisando oportunidades. Isso pode levar alguns segundos."
+    data-wait-title="Coletando sinais do YouTube e analisando com a IA…"
+    data-wait-sub="Buscando trending BR e vídeos recentes por views. Use Parar para cancelar."
   >
     {% csrf_token %}
+    <div>
+      <label for="id_video_format">{{ form.video_format.label }}</label>
+      {{ form.video_format }}
+      {% if form.video_format.help_text %}<p class="muted">{{ form.video_format.help_text }}</p>{% endif %}
+    </div>
     <div>
       <label for="id_llm_credential">{{ form.llm_credential.label }}</label>
       {{ form.llm_credential }}
     </div>
-    <button class="btn" type="submit">Pesquisar nichos com IA</button>
+    <button class="btn" type="submit">Pesquisar nichos em alta</button>
   </form>
 </article>
 
@@ -37,7 +45,7 @@
       <p class="muted">{{ n.children.count }} subnicho(s)</p>
     </article>
     {% empty %}
-    <article class="card"><p>Nenhum nicho ainda. Clique em <strong>Pesquisar nichos com IA</strong>.</p></article>
+    <article class="card"><p>Nenhum nicho ainda. Clique em <strong>Pesquisar nichos em alta</strong>.</p></article>
     {% endfor %}
   </div>
 </section>

@@ -10,6 +10,7 @@
     {% elif draft.ai_status == "review" %}<span class="badge warn">{{ draft.get_ai_status_display }}</span>
     {% else %}<span class="badge">{{ draft.get_ai_status_display }}</span>{% endif %}
     {% if draft.ai_score != None %}· score {{ draft.ai_score|floatformat:1 }}{% endif %}
+    · anti-IA via Gemini (Google AI Studio)
   </p>
 </header>
 
@@ -51,7 +52,7 @@
     action="{% url 'ui:scripts_regenerate' draft.pk %}"
     class="js-ai-wait"
     data-wait-title="Regenerando roteiro…"
-    data-wait-sub="Reescrevendo com tom mais humano. Aguarde."
+    data-wait-sub="Reescrevendo com tom mais humano. Use Parar para cancelar."
   >{% csrf_token %}
     <button class="btn warn" type="submit">Regenerar (anti-IA)</button>
   </form>

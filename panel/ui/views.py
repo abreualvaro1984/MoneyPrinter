@@ -17,8 +17,15 @@ from panel.ui.forms import (
     ScriptGenerateForm,
     SocialAccountForm,
     TrendSearchForm,
+    YoutubeDataApiKeyForm,
 )
-from panel.ui.models import LlmCredential, NicheDiscoveryRun, ScriptDraft, TrendRun
+from panel.ui.models import (
+    LlmCredential,
+    NicheDiscoveryRun,
+    ScriptDraft,
+    TrendRun,
+    YoutubeDataApiKey,
+)
 from panel.ui.services import niches_discover as niche_service
 from panel.ui.services import scripts as script_service
 from panel.ui.services import trends as trends_service
@@ -143,16 +150,52 @@ def trends_detail(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 def apis_index(request: HttpRequest) -> HttpResponse:
     creds = LlmCredential.objects.all()
+    yt = YoutubeDataApiKey.get_solo()
     return render(
         request,
         "ui/apis_index.html",
         {
             **_seo(
-                "APIs de IA — MoneyPrinter",
-                "Cadastre várias API keys e escolha qual usar nas pesquisas.",
+                "APIs — MoneyPrinter",
+                "Cadastre YouTube API key e keys de IA para pesquisas e roteiros.",
             ),
             "credentials": creds,
+            "youtube_key": yt,
+            "youtube_masked": yt.api_key_masked,
         },
+    )
+
+
+@login_required
+@require_POST
+def apis_youtube_save(request: HttpRequest) -> HttpResponse:
+    yt = YoutubeDataApiKey.get_solo()
+    form = YoutubeDataApiKeyForm(request.POST, instance=yt)
+    if form.is_valid():
+        form.save()
+        if form.cleaned_data.get("api_key"):
+            messages.success(request, "YouTube API key salva no banco.")
+        else:
+            messages.info(request, "YouTube API key removida.")
+    else:
+        for err in form.errors.get("api_key", form.errors.get("__all__", [])):
+            messages.error(request, str(err))
+    return redirect("ui:apis_index")
+
+
+@login_required
+@require_POST
+def apis_youtube_test(request: HttpRequest) -> HttpResponse:
+    """Valida a key do formulário (ou a salva no banco se o campo vier vazio)."""
+    from panel.ui.services import youtube_test as youtube_test_service
+
+    result = youtube_test_service.test_youtube_api_key(
+        request.POST.get("api_key", "")
+    )
+    return render(
+        request,
+        "ui/partials/api_test_result.html",
+        {"result": result},
     )
 
 
@@ -373,21 +416,30 @@ def niches_index(request: HttpRequest) -> HttpResponse:
 def niches_discover(request: HttpRequest) -> HttpResponse:
     form = NicheDiscoverForm(request.POST)
     cred = None
+    video_format = "dark"
     if form.is_valid():
         cred = form.cleaned_data.get("llm_credential") or resolve_credential(None)
+        video_format = form.cleaned_data.get("video_format") or "dark"
     else:
         cred = resolve_credential(None)
-    run = niche_service.discover_root_niches(llm_credential=cred)
+        video_format = request.POST.get("video_format") or "dark"
+    run = niche_service.discover_root_niches(
+        llm_credential=cred,
+        video_format=video_format,
+    )
     messages.success(request, f"Descoberta #{run.pk}: {len(run.suggestions_json)} nichos sugeridos.")
     return redirect("ui:niches_discovery", pk=run.pk)
 
 
 @login_required
 def niches_discovery(request: HttpRequest, pk: int) -> HttpResponse:
+    from panel.ui.services.video_formats import get_video_format
+
     run = get_object_or_404(
         NicheDiscoveryRun.objects.select_related("parent_niche", "llm_credential"),
         pk=pk,
     )
+    fmt = get_video_format(run.video_format or "any")
     return render(
         request,
         "ui/niches_discovery.html",
@@ -398,6 +450,8 @@ def niches_discovery(request: HttpRequest, pk: int) -> HttpResponse:
             ),
             "run": run,
             "suggestions": run.suggestions_json or [],
+            "signals": run.signals_json or {},
+            "video_format": fmt,
         },
     )
 
@@ -452,9 +506,17 @@ def niches_discover_subs(request: HttpRequest, pk: int) -> HttpResponse:
     niche = get_object_or_404(Niche, pk=pk)
     form = NicheDiscoverForm(request.POST)
     cred = resolve_credential(None)
+    video_format = "dark"
     if form.is_valid():
         cred = form.cleaned_data.get("llm_credential") or cred
-    run = niche_service.discover_subniches(niche, llm_credential=cred)
+        video_format = form.cleaned_data.get("video_format") or "dark"
+    else:
+        video_format = request.POST.get("video_format") or "dark"
+    run = niche_service.discover_subniches(
+        niche,
+        llm_credential=cred,
+        video_format=video_format,
+    )
     messages.success(request, f"{len(run.suggestions_json)} subnichos sugeridos.")
     return redirect("ui:niches_discovery", pk=run.pk)
 

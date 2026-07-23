@@ -8,9 +8,10 @@ Roadmap e agentes: [`../roadmap.md`](../roadmap.md) · [`../agents/`](../agents/
 
 | Módulo | Função |
 |--------|--------|
-| **UI** (`panel/ui`) | Tema escuro: Trends + Roteiros (MVP) + placeholders |
-| **Nichos** | Briefing, keywords, voz PT-BR, aspect, fonte de material |
-| **Canais** | Canal YouTube OAuth legado (1 por nicho) |
+| **UI** (`panel/ui`) | Tema escuro mobile-first: Trends + Roteiros + Nichos + APIs + Contas |
+| **Nichos** | Briefing, keywords, descoberta com sinais YouTube reais |
+| **APIs** (`/apis/`) | YouTube Data key (banco + Testar) e keys de IA (Testar) |
+| **Canais** | Canal YouTube OAuth (upload; separado da API key de pesquisa) |
 | **Contas sociais** | Várias contas YouTube / TikTok / IG / Facebook / Kwai |
 | **Destinos de publicação** | Metadados + upload por conta (inline no Job) |
 | **Jobs** | `create` / `clip` / `dub` / `research` + revisão + publish |
@@ -30,9 +31,9 @@ cp panel/.env.example panel/.env
 # test -f config.toml || cp config.example.toml config.toml
 
 mkdir -p panel/credentials
-# Coloque o OAuth client JSON em:
-#   panel/credentials/youtube_client_secret.json
-# E a YOUTUBE_API_KEY no panel/.env
+# OAuth (upload): panel/credentials/youtube_client_secret.json
+# API key de pesquisa: preferência = digitar em http://127.0.0.1:8010/apis/
+# (YOUTUBE_API_KEY no .env é só fallback)
 
 cd panel
 uv run python manage.py migrate
@@ -77,7 +78,8 @@ uv run python manage.py create_job meu-nicho --type dub --source-url "https://yo
 2. Crie OAuth Client **Web application** com redirect  
    `http://127.0.0.1:8010/channels/oauth/callback/`
 3. Baixe o JSON → `panel/credentials/youtube_client_secret.json`
-4. Crie também uma **API Key** para pesquisa → `YOUTUBE_API_KEY` no `.env`
+4. Crie também uma **API Key** para pesquisa → cole em **UI `/apis/`** (banco).
+   Opcional: `YOUTUBE_API_KEY` no `.env` como fallback. Use o botão **Testar**.
 
 ## Observações
 

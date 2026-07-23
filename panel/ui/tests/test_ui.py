@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -7,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from panel.niches.models import Niche
-from panel.ui.models import LlmCredential, ScriptDraft, TrendRun
+from panel.ui.models import LlmCredential, ScriptDraft, TrendRun, YoutubeDataApiKey
 from panel.ui.services import ai_detect
 from panel.ui.services import scripts as script_service
 from panel.ui.services.llm_test import LlmTestResult
@@ -20,10 +21,46 @@ class AiDetectTests(TestCase):
             "É importante ressaltar que, além disso, em conclusão tudo importa. "
             "Vale ressaltar o ponto final com clareza absoluta e estrutura uniforme demais."
         )
-        result = ai_detect.score_text(text)
+        with patch("panel.ui.services.ai_detect._resolve_gemini_api_key", return_value=("", "")):
+            result = ai_detect.score_text(text)
         self.assertIsNotNone(result.score)
         self.assertGreaterEqual(result.score or 0, 45)
         self.assertIn(result.status, {"review", "regen", "skipped"})
+
+    def test_gemini_score_preferred(self):
+        fake_response = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": json.dumps(
+                                    {
+                                        "score": 82,
+                                        "label": "ai",
+                                        "reasons": ["frases genéricas"],
+                                    }
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        with (
+            patch(
+                "panel.ui.services.ai_detect._resolve_gemini_api_key",
+                return_value=("fake-key", "env:GEMINI_API_KEY"),
+            ),
+            patch("panel.ui.services.ai_detect.requests.post") as post,
+        ):
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = fake_response
+            post.return_value.text = "ok"
+            result = ai_detect.score_text("texto qualquer para score")
+        self.assertEqual(result.score, 82)
+        self.assertEqual(result.status, "regen")
+        self.assertEqual(result.raw.get("provider"), "gemini")
 
 
 class UiFlowTests(TestCase):
@@ -106,7 +143,51 @@ class LlmApiTests(TestCase):
     def test_apis_page(self):
         response = self.client.get(reverse("ui:apis_index"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "YouTube Data API")
         self.assertContains(response, "APIs de IA")
+        self.assertContains(response, reverse("ui:apis_youtube_test"))
+
+    def test_save_youtube_api_key_to_db(self):
+        response = self.client.post(
+            reverse("ui:apis_youtube_save"),
+            {"api_key": "AIzaSyTestKey1234567890"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(YoutubeDataApiKey.get_api_key(), "AIzaSyTestKey1234567890")
+
+    def test_reject_gocspx_youtube_key(self):
+        response = self.client.post(
+            reverse("ui:apis_youtube_save"),
+            {"api_key": "GOCSPX-fake-secret"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(YoutubeDataApiKey.get_api_key(), "")
+        self.assertContains(response, "GOCSPX")
+
+    def test_youtube_test_button_rejects_gocspx(self):
+        response = self.client.post(
+            reverse("ui:apis_youtube_test"),
+            {"api_key": "GOCSPX-fake"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "GOCSPX")
+
+    def test_youtube_test_button_ok(self):
+        from panel.ui.services.youtube_test import YoutubeTestResult
+
+        with patch(
+            "panel.ui.services.youtube_test.test_youtube_api_key",
+            return_value=YoutubeTestResult(
+                True, "YouTube OK — key válida (form), respondeu em 0.1s", 0.1
+            ),
+        ):
+            response = self.client.post(
+                reverse("ui:apis_youtube_test"),
+                {"api_key": "AIzaSyFake"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "YouTube OK")
 
     def test_create_multiple_credentials(self):
         response = self.client.post(
@@ -178,6 +259,8 @@ class LlmApiTests(TestCase):
         self.assertContains(response, "Pesquisar nichos")
         self.assertContains(response, "js-ai-wait")
         self.assertContains(response, "ai-wait")
+        self.assertContains(response, "Parar / cancelar")
+        self.assertContains(response, "ai-wait-cancel")
 
     def test_accounts_form_has_tutorial(self):
         response = self.client.get(reverse("ui:accounts_create"))

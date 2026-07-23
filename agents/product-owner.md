@@ -14,12 +14,13 @@ Não é SaaS (por enquanto): uso local / WSL, painel Django.
 4. **Trends não gera vídeo** — só pesquisa e sugere temas; “Usar este tema” abre Roteiros.
 5. **Roteiros não renderizam sozinhos** — usuário aprova e escolhe o próximo passo.
 6. **Contas agrupadas por nicho** — várias contas por plataforma permitidas.
-7. **Idioma** — produto e UI em português (pt-BR).
-8. **Roadmap vivo** — concluir entrega = marcar checkbox em `roadmap.md`.
+7. **Credenciais na UI** — YouTube Data API e IAs em `/apis/` (banco); usuário não precisa editar `.env` no dia a dia.
+8. **Idioma** — produto e UI em português (pt-BR).
+9. **Roadmap vivo** — concluir entrega = marcar checkbox em `roadmap.md`.
 
 ## MVP atual
 
-Itens **1** (Trends) e **5** (Roteiro humano + anti-IA) + shell UI.
+Itens **1** (Trends) e **5** (Roteiro humano + anti-IA Gemini) + shell UI + nichos com sinais YouTube reais + `/apis/` (YT + LLMs com Testar).
 
 ## Fora de escopo imediato
 

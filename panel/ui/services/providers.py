@@ -27,7 +27,7 @@ PANEL_LLM_PRESETS: tuple[PanelLlmPreset, ...] = (
         "gemini",
         "Gemini (Google)",
         "https://aistudio.google.com/app/apikey",
-        "1) Abra Google AI Studio → Get API key. 2) Cole a key. Modelo default do Gemini é aplicado sozinho.",
+        "1) Abra Google AI Studio → Get API key (aistudio.google.com/app/apikey). 2) Cole a key. Usada em Trends/roteiros e no score anti-IA (Gemini Flash). Modelo e URL são automáticos.",
     ),
     PanelLlmPreset(
         "moonshot",
