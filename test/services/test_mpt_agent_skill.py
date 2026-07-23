@@ -57,7 +57,7 @@ class TestMptAgentSkill(unittest.TestCase):
         text = SKILL_DOCUMENT.read_text(encoding="utf-8")
 
         self.assertIn(
-            'uv run --no-project --python 3.11 python mpt_agent.py --subject',
+            'uv run --no-project --python 3.14 python mpt_agent.py --subject',
             text,
         )
         self.assertIn("workdir=SKILL_DIR", text)
