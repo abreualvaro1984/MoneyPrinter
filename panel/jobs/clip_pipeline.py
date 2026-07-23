@@ -5,8 +5,6 @@ import re
 import subprocess
 from pathlib import Path
 
-from django.conf import settings
-
 from panel.jobs.engine_path import ensure_repo_on_path
 from panel.jobs.models import Job
 

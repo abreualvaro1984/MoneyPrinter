@@ -6,7 +6,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from panel.channels import youtube as youtube_service
-from panel.channels.models import YouTubeChannel
 from panel.jobs.models import Job
 
 logger = logging.getLogger(__name__)
