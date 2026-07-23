@@ -15,7 +15,7 @@ class TestConfigPersistence:
         return tomllib.loads(config_path.read_text(encoding="utf-8"))
 
     def test_example_config_documents_runtime_settings(self):
-        """示例配置应展示用户需要手工维护的服务、素材和高级运行参数。"""
+        """As configurações de amostra devem demonstrar serviços, materiais e parâmetros operacionais avançados que os usuários precisam manter manualmente."""
         example_config = self._load_example_config()
         app_config = example_config["app"]
 
@@ -27,7 +27,7 @@ class TestConfigPersistence:
         assert example_config["whisper"]["device"] == "cpu"
 
     def test_example_config_covers_llm_provider_registry(self):
-        """Registry 中可配置的 Provider 字段必须能在示例文件中被发现。"""
+        """Registry Os campos configuráveis ​​do Provedor devem ser encontrados no arquivo de amostra."""
         app_config = self._load_example_config()["app"]
 
         for provider in LLM_PROVIDER_REGISTRY:
@@ -41,7 +41,7 @@ class TestConfigPersistence:
                 assert provider.config_key(field.config_suffix) in app_config
 
     def test_upload_post_settings_belong_to_app_section(self):
-        """发布配置必须位于 app 节点，确保示例文件与运行时读取路径一致。"""
+        """A configuração da versão deve estar localizada no nó do aplicativo, garantindo que os arquivos de amostra sejam consistentes com o caminho de leitura do tempo de execução."""
         example_config = self._load_example_config()
         upload_post_keys = {
             "upload_post_enabled",
@@ -58,8 +58,8 @@ class TestConfigPersistence:
 
     def test_save_config_uses_parseable_atomic_output(self):
         """
-        配置保存先写临时文件再原子替换。测试同时确认输出仍是合法 TOML，
-        且成功保存后不会在配置目录遗留临时文件。
+        A configuração é salva primeiro escrevendo um arquivo temporário e depois substituindo-o atomicamente. O teste também confirma que a saída ainda é válida para TOML,
+        E nenhum arquivo temporário será deixado no diretório de configuração após o salvamento bem-sucedido.
         """
         original_cfg = dict(config._cfg)
         original_app = dict(config.app)
@@ -83,7 +83,7 @@ class TestConfigPersistence:
             config._cfg.update(original_cfg)
 
     def test_runtime_config_lock_blocks_concurrent_config_writes(self):
-        """长任务持有运行锁时，其它会话不能在任务中途改写全局配置。"""
+        """Quando uma tarefa longa mantém um bloqueio de execução, outras sessões não podem substituir a configuração global no meio da tarefa."""
         write_started = threading.Event()
         write_finished = threading.Event()
 
@@ -104,7 +104,7 @@ class TestConfigPersistence:
         config.app.pop("runtime_lock_test", None)
 
     def test_runtime_config_lock_allows_idempotent_page_writes(self):
-        """生成期间刷新页面时，相同控件值的回写不能阻塞整页渲染。"""
+        """Quando a página é atualizada durante a geração, o write-back do mesmo valor de controle não pode bloquear a renderização completa da página."""
         key = "runtime_lock_idempotent_test"
         config.app[key] = "unchanged"
         write_finished = threading.Event()
@@ -126,7 +126,7 @@ class TestConfigPersistence:
         config.app.pop(key, None)
 
     def test_try_runtime_config_lock_returns_immediately_when_busy(self):
-        """试听锁不能等待长任务释放全局配置，忙碌时应立即让 UI 提示重试。"""
+        """O bloqueio de audição não pode esperar por uma tarefa longa para liberar a configuração global. Quando ocupado, a IU deverá solicitar que você tente novamente imediatamente."""
         attempted = threading.Event()
         result = []
 

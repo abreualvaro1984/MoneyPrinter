@@ -25,24 +25,22 @@ MAX_GENERATED_AUDIO_BYTES = 50 * 1024 * 1024
 
 
 class ElevenLabsMusicError(RuntimeError):
-    """表示 ElevenLabs 配乐请求、代理生成或返回音频校验失败。"""
+    """Indica que uma solicitação de trilha sonora do ElevenLabs, geração de proxy ou verificação de áudio de retorno falhou."""
 
 
 class ElevenLabsPaidPlanRequiredError(ElevenLabsMusicError):
-    """表示 Key 有效，但当前账号套餐不包含 ElevenLabs Music API。"""
+    """Indica que a chave é válida, mas o pacote da conta atual não inclui a API ElevenLabs Music."""
 
 
 class ElevenLabsAuthenticationError(ElevenLabsMusicError):
-    """表示 ElevenLabs API Key 缺失或已被服务端拒绝。"""
+    """Indica que a chave API ElevenLabs está faltando ou foi rejeitada pelo servidor."""
 
 
 def get_api_key() -> str:
-    """
-    读取 ElevenLabs 共用 API Key。
+    """Leia a chave de API compartilhada do ElevenLabs.
 
-    配乐与现有 ElevenLabs TTS 使用同一个账号配置，避免用户在 WebUI 重复维护
-    两份 Key；环境变量仅作为本机配置未填写时的后备来源。
-    """
+    A trilha sonora usa a mesma configuração de conta do TTS ElevenLabs existente para evitar manutenção repetida por usuários na WebUI.
+    Duas cópias da Chave; variáveis ​​de ambiente são usadas apenas como fonte de backup quando a configuração local não está preenchida."""
     configured_key = str(config.elevenlabs.get("api_key", "") or "").strip()
     return configured_key or os.getenv("ELEVENLABS_API_KEY", "").strip()
 
@@ -59,7 +57,7 @@ def _base_url() -> str:
 
 
 def _model_id() -> str:
-    """只允许官方 Video-to-Music 当前公开的模型，错误配置时安全回退。"""
+    """Somente modelos atualmente expostos pelo Video-to-Music oficial são permitidos, com alternativa segura em caso de configuração incorreta."""
     model_id = str(
         config.elevenlabs.get("music_model_id", DEFAULT_MODEL_ID)
         or DEFAULT_MODEL_ID
@@ -68,7 +66,7 @@ def _model_id() -> str:
 
 
 def _request_timeout() -> tuple[int, int]:
-    """限制配乐读取超时，兼顾长视频生成耗时与错误配置的可恢复性。"""
+    """Limite o tempo limite de leitura da trilha sonora, levando em consideração a produção demorada de vídeos longos e a possibilidade de recuperação de configurações incorretas."""
     raw_timeout = config.elevenlabs.get("music_timeout", 600)
     try:
         read_timeout = float(raw_timeout)
@@ -80,20 +78,18 @@ def _request_timeout() -> tuple[int, int]:
 
 
 def _safe_response_error(response: requests.Response) -> str:
-    """截断第三方错误正文，保留定位信息但不让 HTML 页面污染任务日志。"""
+    """Trunque corpos de erros de terceiros, preservando informações de localização, mas não permitindo que páginas HTML poluam o log de tarefas."""
     body = (response.text or "").strip().replace("\n", " ")[:500]
     return body or response.reason or "request failed"
 
 
 def test_connection() -> dict[str, Any]:
-    """
-    使用不消耗音乐生成额度的订阅接口检查 API Key 和账号套餐。
+    """Use a interface de assinatura que não consome créditos de geração de música para verificar a chave API e o pacote da conta.
 
-    该接口只能确认 Key 可访问订阅信息以及账号不是免费套餐，不能证明当前 Key
-    一定拥有 Music endpoint 权限。ElevenLabs 允许按 endpoint、额度和 IP 限制
-    Key，因此 UI 成功提示必须保留这一边界，实际权限仍由生成请求最终确认。
-    响应中的账单和用量详情不会写入日志，避免记录账号隐私。
-    """
+    Esta interface só pode confirmar que a chave pode acessar as informações da assinatura e que a conta não é um pacote gratuito, mas não pode provar que a chave atual
+    Deve ter permissão de endpoint de música. ElevenLabs permite restrições por endpoint, cota e IP
+    Key, portanto, o prompt de sucesso da IU deve preservar esse limite e as permissões reais ainda serão confirmadas pela solicitação de build.
+    Os detalhes da fatura e do uso na resposta não serão gravados no log para evitar o registro da privacidade da conta."""
     api_key = get_api_key()
     if not api_key:
         raise ElevenLabsAuthenticationError("ElevenLabs API key is required")
@@ -142,14 +138,12 @@ def test_connection() -> dict[str, Any]:
 
 
 def validate_generation_access() -> None:
-    """
-    在昂贵的视频流水线开始前排除确定无法生成配乐的账号。
+    """Elimine contas que não consigam gerar trilhas sonoras antes do início do caro pipeline de vídeo.
 
-    免费套餐和无效 Key 都是确定性错误，必须立即终止，避免先消耗 LLM、TTS
-    和素材服务额度。订阅接口也可能因 Music-only endpoint scope、IP 限制或
-    临时网络问题不可访问；这些结果不能证明 Music API 不可用，因此只记录警告，
-    继续让真正的生成请求决定结果，避免把受限但可用的 Key 错误拦截。
-    """
+    Planos gratuitos e chaves inválidas são erros determinísticos e devem ser encerrados imediatamente para evitar consumir LLM e TTS primeiro.
+    e cota de serviços materiais. A interface de assinatura também pode ser afetada pelo escopo do endpoint somente música, restrições de IP ou
+    Inacessível devido a problema temporário de rede; esses resultados não provam que a API Music esteja indisponível, portanto, apenas um aviso é registrado,
+    Continue deixando a solicitação de build real determinar o resultado e evite interceptar erros de chave restritos, mas disponíveis."""
     try:
         test_connection()
     except (ElevenLabsPaidPlanRequiredError, ElevenLabsAuthenticationError):
@@ -162,7 +156,7 @@ def validate_generation_access() -> None:
 
 
 def _remove_file(file_path: str) -> None:
-    """尽力清理 ElevenLabs 中间文件，不覆盖调用方正在处理的原始异常。"""
+    """Faça o seu melhor para limpar os arquivos intermediários do ElevenLabs e não substituir a exceção original que está sendo tratada pelo chamador."""
     if not file_path or not os.path.exists(file_path):
         return
     try:
@@ -175,12 +169,10 @@ def _remove_file(file_path: str) -> None:
 
 
 def _create_video_proxy(video_path: str) -> str:
-    """
-    生成无音轨、最长边 1280 像素的 H.264 代理视频。
+    """Gera um vídeo proxy H.264 sem trilha de áudio e 1280 pixels no lado mais longo.
 
-    Video-to-Music 只分析画面，上传原始高清成片既不会改善配乐，又会增加流量
-    和等待时间。代理严格限制在官方 200 MB 上限内，并在请求结束后删除。
-    """
+    O Video-to-Music analisa apenas a imagem, o upload do filme original em alta definição não melhorará a trilha sonora nem aumentará o tráfego.
+    e tempo de espera. Os proxies são estritamente limitados ao limite oficial de 200 MB e são excluídos ao final da solicitação."""
     descriptor, proxy_path = tempfile.mkstemp(
         prefix=".elevenlabs-music-proxy-",
         suffix=".mp4",
@@ -251,7 +243,7 @@ def _create_video_proxy(video_path: str) -> str:
 
 
 def _stream_audio(response: requests.Response, temp_audio_path: str) -> int:
-    """分块保存音频并限制最大体积，防止异常响应耗尽本机磁盘。"""
+    """Salve o áudio em partes e limite o tamanho máximo para evitar que respostas anormais esgotem o disco local."""
     total_bytes = 0
     with open(temp_audio_path, "wb") as output:
         for chunk in response.iter_content(chunk_size=1024 * 1024):
@@ -271,7 +263,7 @@ def _stream_audio(response: requests.Response, temp_audio_path: str) -> int:
 
 
 def _request_bgm(video_path: str, output_path: str, prompt: str) -> str:
-    """请求 ElevenLabs 配乐，完整下载并通过 FFmpeg 校验后再原子发布。"""
+    """Solicite a trilha sonora do ElevenLabs, baixe-a completa e passe na verificação do FFmpeg antes de lançá-la atomicamente."""
     output_dir = os.path.dirname(os.path.abspath(output_path))
     os.makedirs(output_dir, exist_ok=True)
     descriptor, temp_audio_path = tempfile.mkstemp(
@@ -298,9 +290,9 @@ def _request_bgm(video_path: str, output_path: str, prompt: str) -> str:
                     params={"output_format": "mp3_44100_128"},
                     files=[
                         (
-                            # 官方文档把表单数组展示为 ``videos[]``，但 2026-07-18
-                            # 生产接口会对该字段返回 422，实际 Starlette 参数名为
-                            # ``videos``。重复上传时 requests 可继续添加同名字段。
+                            # A documentação oficial mostra o array do formulário como ``videos[]``, mas 2026-07-18
+                            # A interface de produção retornará 422 para este campo, e o parâmetro Starlette real é denominado
+                            # ``vídeos``. Ao fazer upload repetidamente, as solicitações podem continuar adicionando campos com o mesmo nome.
                             "videos",
                             (Path(video_path).name, video_file, "video/mp4"),
                         )
@@ -318,8 +310,8 @@ def _request_bgm(video_path: str, output_path: str, prompt: str) -> str:
                         )
                     total_bytes = _stream_audio(response, temp_audio_path)
         except requests.RequestException as exc:
-            # 下载阶段断线也属于请求失败，必须进入任务降级逻辑，不能留下半条
-            # 音频或让已经生成的视频因为第三方网络波动整体失败。
+            # A desconexão durante a fase de download também é considerada uma falha na solicitação. A lógica de downgrade da tarefa deve ser inserida e metade da mensagem não pode ser deixada.
+            # O áudio pode fazer com que o vídeo gerado falhe devido a flutuações de rede de terceiros.
             raise ElevenLabsMusicError(
                 f"failed to request ElevenLabs music: {exc}"
             ) from exc
@@ -347,7 +339,7 @@ def generate_bgm(
     video_duration: float,
     prompt: str = "",
 ) -> str:
-    """为一条已拼接视频生成时长和画面匹配的 ElevenLabs 背景音乐。"""
+    """Gere música de fundo do ElevenLabs para um vídeo emendado que corresponda à duração e à imagem."""
     if not get_api_key():
         raise ElevenLabsMusicError("ElevenLabs API key is required")
     if not os.path.isfile(video_path):

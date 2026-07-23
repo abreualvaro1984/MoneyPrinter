@@ -1,0 +1,50 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Roteiros</h1>
+  <p>Gere e edite textos humanos. Esta área <strong>não renderiza vídeo</strong> sozinha.</p>
+</header>
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Gerar novo</h2>
+  <form method="post" action="{% url 'ui:scripts_generate' %}" class="form-stack">
+    {% csrf_token %}
+    <div>
+      <label for="id_niche">{{ form.niche.label }}</label>
+      {{ form.niche }}
+    </div>
+    <div>
+      <label for="id_topic">{{ form.topic.label }}</label>
+      {{ form.topic }}
+    </div>
+    <button class="btn" type="submit">Gerar roteiro</button>
+  </form>
+</article>
+
+<section class="card">
+  <h2>Rascunhos</h2>
+  <table class="table">
+    <thead>
+      <tr><th>Título</th><th>Nicho</th><th>Anti-IA</th><th>Score</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for d in drafts %}
+      <tr>
+        <td>{{ d.title|default:d.topic }}</td>
+        <td>{{ d.niche }}</td>
+        <td>
+          {% if d.ai_status == "pass" %}<span class="badge ok">{{ d.get_ai_status_display }}</span>
+          {% elif d.ai_status == "regen" %}<span class="badge danger">{{ d.get_ai_status_display }}</span>
+          {% elif d.ai_status == "review" %}<span class="badge warn">{{ d.get_ai_status_display }}</span>
+          {% else %}<span class="badge">{{ d.get_ai_status_display }}</span>{% endif %}
+        </td>
+        <td>{% if d.ai_score != None %}{{ d.ai_score|floatformat:0 }}{% else %}—{% endif %}</td>
+        <td><a href="{% url 'ui:scripts_detail' d.pk %}">Abrir</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Nenhum roteiro ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,6 +1,6 @@
-# 说明：
-# 1. 主依赖来源统一收敛到 pyproject.toml。
-# 2. 运行环境通过 uv.lock 固定，避免不同机器解析出不同版本组合。
+# ilustrar:
+# 1. As principais fontes de dependência são unificadas em pyproject.toml.
+# 2. O ambiente de execução é corrigido por meio de uv.lock para evitar que máquinas diferentes analisem combinações de versões diferentes.
 [build-system]
 requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
@@ -47,6 +47,7 @@ twelvelabs = [
 panel = [
     "django>=5.2,<6",
     "django-environ>=0.12.0",
+    "bcrypt>=4.2.0",
     "google-api-python-client>=2.160.0",
     "google-auth-oauthlib>=1.2.1",
     "google-auth-httplib2>=0.2.0",
@@ -61,14 +62,14 @@ dev = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# WebUI 需要先把项目根目录加入 sys.path，随后才能导入 app 包。
+# WebUI Você precisa adicionar o diretório raiz do projeto a sys.path antes de importar o pacote do aplicativo.
 "webui/Main.py" = ["E402"]
 
 [tool.coverage.run]
-# 统计分支覆盖率可以识别“代码行执行了，但条件的另一条分支从未验证”的情况，
-# 比只统计行覆盖率更适合作为 CI 质量基线。CLI 和 WebUI 都属于生产入口，
-# 因此与 app 服务层、服务启动入口和面向 Agent 用户发布的 Skill 脚本一起
-# 纳入统计，避免覆盖率只反映局部模块。
+# A cobertura estatística de ramificação pode identificar situações em que uma linha de código é executada, mas outra ramificação da condição nunca é verificada.
+# É mais adequado como linha de base de qualidade de IC do que apenas contar a cobertura de linhas. Tanto CLI quanto WebUI pertencem à entrada de produção,
+# Portanto, juntamente com a camada de serviço do aplicativo, o portal de inicialização do serviço e o script de habilidades publicados para usuários do Agente,
+# Incluir estatísticas para evitar que a cobertura reflita apenas módulos locais.
 branch = true
 source = ["app", "cli", "webui", "main", "docs/skill"]
 
@@ -83,5 +84,5 @@ skip_covered = true
 packages = ["app"]
 
 [tool.uv]
-# 当前项目以应用运行形态为主，不作为可发布的 Python 包安装。
+# O projeto atual está principalmente na forma de execução de aplicativo e não está instalado como um pacote Python liberável.
 package = false

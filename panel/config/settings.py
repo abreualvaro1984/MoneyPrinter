@@ -13,11 +13,12 @@ env = environ.Env(
     SECRET_KEY=(str, "dev-only-change-me-moneyprinter-panel"),
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
     YOUTUBE_CLIENT_SECRETS=(str, str(BASE_DIR / "credentials" / "youtube_client_secret.json")),
-    YOUTUBE_OAUTH_REDIRECT_URI=(str, "http://127.0.0.1:8000/channels/oauth/callback/"),
+    YOUTUBE_OAUTH_REDIRECT_URI=(str, "http://127.0.0.1:8010/channels/oauth/callback/"),
     PANEL_DEFAULT_VOICE=(str, "pt-BR-FranciscaNeural-Female"),
     PANEL_DEFAULT_LANGUAGE=(str, "pt-BR"),
     PANEL_DEFAULT_ASPECT=(str, "9:16"),
     PANEL_DEFAULT_VIDEO_SOURCE=(str, "pexels"),
+    GPTZERO_API_KEY=(str, ""),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -37,6 +38,8 @@ INSTALLED_APPS = [
     "panel.channels",
     "panel.jobs",
     "panel.research",
+    "panel.publishing",
+    "panel.ui",
 ]
 
 MIDDLEWARE = [
@@ -77,6 +80,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Novas senhas (cadastro/login/admin) usam bcrypt. PBKDF2 fica como fallback
+# para usuários antigos (ex.: admin criado antes desta mudança).
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.BCryptPasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
+
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
@@ -84,7 +98,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "ui:home"
+LOGOUT_REDIRECT_URL = "login"
+
+GPTZERO_API_KEY = env("GPTZERO_API_KEY")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = REPO_ROOT / "storage" / "panel"

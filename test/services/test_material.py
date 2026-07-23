@@ -27,8 +27,8 @@ class TestMaterialTlsVerification(unittest.TestCase):
 
     def test_search_pexels_uses_tls_verification_by_default(self):
         """
-        默认路径必须开启 TLS 校验，避免素材 API key 和返回的素材 URL
-        在公共网络或不可信代理环境中被中间人攻击截获或篡改。
+        O caminho padrão deve ativar a verificação TLS para evitar chaves de API de materiais e URLs de materiais retornados.
+        Interceptado ou adulterado por um ataque man-in-the-middle em uma rede pública ou em um ambiente proxy não confiável.
         """
         config.app["pexels_api_keys"] = ["pexels-key"]
         config.app.pop("tls_verify", None)
@@ -59,8 +59,8 @@ class TestMaterialTlsVerification(unittest.TestCase):
 
     def test_search_pixabay_allows_explicit_tls_disable_for_proxy(self):
         """
-        少数企业代理会使用自签证书。该场景必须显式配置关闭 TLS 校验，
-        不能再由代码硬编码默认关闭。
+        Alguns agentes corporativos usam certificados autoassinados. Este cenário deve ser configurado explicitamente para desativar a verificação TLS.
+        O desligamento padrão não pode mais ser codificado por código.
         """
         config.app["pixabay_api_keys"] = ["pixabay-key"]
         config.app["tls_verify"] = False
@@ -117,9 +117,9 @@ class TestMaterialTlsVerification(unittest.TestCase):
 
     def test_download_videos_accepts_plain_string_concat_mode(self):
         """
-        download_videos 可能被服务层或测试直接传入字符串模式，而不是
-        VideoConcatMode 枚举。这里用空搜索词避免真实网络请求，只验证
-        字符串 "random" 不会再因为访问 `.value` 抛 AttributeError。
+        download_videos Pode ser passado diretamente para o padrão de string pela camada de serviço ou teste, em vez de
+        Enumeração VideoConcatMode. Use termos de pesquisa vazios aqui para evitar solicitações reais de rede e apenas verificar
+        corda "random" Não há mais visitas `.value` Lançar AttributeError.
         """
         result = material.download_videos(
             task_id="string-concat-mode",
@@ -131,9 +131,9 @@ class TestMaterialTlsVerification(unittest.TestCase):
 
     def test_download_videos_can_round_robin_terms_in_script_order(self):
         """
-        开启按文案顺序匹配素材后，不能让第一个关键词的多个候选先把
-        音频时长填满。这里模拟两个关键词各有多个候选，验证下载顺序是
-        term1-第1个、term2-第1个、term1-第2个，贴近脚本叙事顺序。
+        Depois de ativar a correspondência de materiais na ordem de redação, vários candidatos para a primeira palavra-chave não poderão ser correspondidos primeiro.
+        A duração do áudio é preenchida. É simulado aqui que cada uma das duas palavras-chave tem vários candidatos e a ordem de download é verificada como
+        termo1-o 1º, termo2-o 1º, termo1-o 2º, próximo à ordem narrativa do roteiro.
         """
         search_results = {
             "opening city": [
@@ -181,8 +181,8 @@ class TestMaterialTlsVerification(unittest.TestCase):
 
 class TestCoverrProvider(unittest.TestCase):
     """
-    Coverr 视频素材源(spec: 2026-06-09-coverr-video-provider-design.md)。
-    全部用 unittest.mock 替换 requests，确保 CI 不依赖真实网络和真实 API key。
+    Coverr Fonte do material de vídeo (especificação: 2026-06-09-coverr-video-provider-design.md).
+    Substitua todas as solicitações por unittest.mock para garantir que o CI não dependa da rede real e da chave de API real.
     """
 
     def setUp(self):
@@ -199,11 +199,11 @@ class TestCoverrProvider(unittest.TestCase):
 
     def test_search_coverr_uses_mp4_download_url(self):
         """
-        search_videos_coverr 应把每个 hit 转成 MaterialInfo，并把 urls.mp4_download
-        直接作为 MaterialInfo.url。
-        按 Coverr 官方文档 (api.coverr.co/docs/videos/#download-a-video),
-        GET mp4_download 本身就被 Coverr 计入下载统计,无需额外 PATCH ping。
-        同时验证 Authorization header 使用 Bearer scheme。
+        search_videos_coverr Cada hit deve ser convertido em MaterialInfo e urls.mp4_download
+        Diretamente como MaterialInfo.url.
+        De acordo com a documentação oficial da Coverr (api.coverr.co/docs/videos/#download-a-video),
+        GET mp4_download Já é contabilizado nas estatísticas de download do Coverr, nenhum ping PATCH adicional é necessário.
+        Verifique também se o cabeçalho Authorization usa o esquema Bearer.
         """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
@@ -239,7 +239,7 @@ class TestCoverrProvider(unittest.TestCase):
         item = results[0]
         self.assertEqual(item.provider, "coverr")
         self.assertEqual(item.duration, 11)
-        # url 字段就是 mp4_download URL,不再做 coverr://id|url 编码
+        # url O campo é mp4_download URL, sem codificação coverr://id|url
         self.assertEqual(
             item.url, "https://storage.coverr.co/videos/abc/download?token=xyz"
         )
@@ -250,7 +250,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertTrue(get.call_args.kwargs["verify"])
 
     def test_search_coverr_uses_tls_verification_by_default(self):
-        """与 pexels/pixabay 一致:未显式配置时 TLS 校验默认开启。"""
+        """Consistente com pexels/pixabay: a verificação TLS é habilitada por padrão quando não configurada explicitamente."""
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
         config.proxy.clear()
@@ -265,7 +265,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertTrue(get.call_args.kwargs["verify"])
 
     def test_search_coverr_allows_explicit_tls_disable_for_proxy(self):
-        """企业自签证书代理场景必须能显式关闭 TLS 校验。"""
+        """Os cenários de proxy de certificado autoassinado empresarial devem ser capazes de desativar explicitamente a verificação TLS."""
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app["tls_verify"] = False
         config.proxy.clear()
@@ -281,8 +281,8 @@ class TestCoverrProvider(unittest.TestCase):
 
     def test_search_coverr_filters_by_min_duration_and_accepts_string(self):
         """
-        Coverr duration 字段在不同响应里可能是 number 或 string,
-        两种格式都要接受;低于 minimum_duration 的应被过滤。
+        Coverr duration O campo pode ser um número ou string em diferentes respostas,
+        Ambos os formatos são aceitos;Aqueles abaixo de mínima_duração devem ser filtrados.
         """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
@@ -315,7 +315,7 @@ class TestCoverrProvider(unittest.TestCase):
         self.assertEqual(results[0].url, "https://example.com/b.mp4")
 
     def test_search_coverr_skips_invalid_items(self):
-        """缺 id 或缺 urls.mp4_download 的条目应被跳过,不应抛异常。"""
+        """Entradas com ID ausente ou urls.mp4_download ausentes devem ser ignoradas e nenhuma exceção deve ser lançada."""
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
         config.proxy.clear()
@@ -351,8 +351,8 @@ class TestCoverrProvider(unittest.TestCase):
 
     def test_search_coverr_returns_empty_on_failure(self):
         """
-        响应结构异常 / 网络异常时,函数必须返回 [] 而不是抛异常,
-        与 pexels/pixabay 行为保持一致。
+        Ao responder a exceções estruturais/exceções de rede, a função deve retornar [] em vez de lançar uma exceção.
+        Consistente com o comportamento do pexels/pixabay.
         """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
@@ -382,11 +382,11 @@ class TestCoverrProvider(unittest.TestCase):
 
     def test_download_videos_passes_mp4_download_url_to_save_video(self):
         """
-        在 source="coverr" 时:
-          1. dispatch 到 search_videos_coverr
-          2. coverr item 走通用下载路径:save_video 收到的就是 mp4_download URL
-             (不再有 coverr://id|url 编码,也不再调用 PATCH ping)
-          3. 返回保存路径
+        existir source="coverr" Hora:
+          1. envie para search_videos_coverr
+          2. O item coverr segue o caminho geral de download: save_video e recebe a URL mp4_download.
+             (Não há mais codificação coverr://id|url, não há mais chamadas de ping PATCH)
+          3. Retorne ao caminho de salvamento
         """
         config.app["coverr_api_keys"] = ["coverr-key"]
         config.app.pop("tls_verify", None)
@@ -416,13 +416,13 @@ class TestCoverrProvider(unittest.TestCase):
         # 1. dispatch
         self.assertEqual(search.call_count, 1)
 
-        # 2. save_video 收到的就是 mp4_download URL,原样传入
+        # 2. save_video O que é recebido é o URL mp4_download, passado como está
         save_url = save.call_args.kwargs.get("video_url") or save.call_args.args[0]
         self.assertEqual(
             save_url, "https://storage.coverr.co/videos/abc/download?token=xyz"
         )
 
-        # 3. 返回值正确
+        # 3. O valor de retorno está correto
         self.assertEqual(result, ["/tmp/coverr-saved.mp4"])
 
 

@@ -5,8 +5,30 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from panel.publishing.models import PublishTarget
+
 from .models import Job
 from . import worker
+
+
+class PublishTargetInline(admin.TabularInline):
+    model = PublishTarget
+    extra = 1
+    autocomplete_fields = ("account",)
+    fields = (
+        "account",
+        "status",
+        "title",
+        "description",
+        "tags",
+        "hashtags",
+        "privacy",
+        "made_for_kids",
+        "remote_id",
+        "remote_url",
+    )
+    readonly_fields = ("remote_id", "remote_url")
+    show_change_link = True
 
 
 @admin.register(Job)
@@ -23,6 +45,7 @@ class JobAdmin(admin.ModelAdmin):
     )
     list_filter = ("job_type", "status", "niche")
     search_fields = ("subject", "source_url", "output_title", "public_id", "error")
+    inlines = [PublishTargetInline]
     readonly_fields = (
         "public_id",
         "engine_task_id",
@@ -114,7 +137,7 @@ class JobAdmin(admin.ModelAdmin):
                 job.mark_failed(str(exc))
         self.message_user(request, "Jobs processados.")
 
-    @admin.action(description="Aprovar e enviar ao YouTube")
+    @admin.action(description="Aprovar e publicar (destinos / YouTube)")
     def approve_and_upload(self, request, queryset):
         for job in queryset.filter(status=Job.Status.AWAITING_REVIEW):
             try:

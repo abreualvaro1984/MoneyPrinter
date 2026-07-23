@@ -30,9 +30,9 @@ from app.services import state as sm
 from app.utils import file_security, utils
 
 
-# 发布请求最长可等待数分钟，不能继续占用视频生成任务的并发名额。
-# 固定大小的线程池将发布吞吐限制在可控范围内，同时让视频产物生成后
-# 立即进入完成状态。
+# A solicitação de publicação pode esperar vários minutos e não pode continuar a ocupar a cota simultânea da tarefa de geração de vídeo.
+# Um pool de threads de tamanho fixo limita a taxa de transferência de publicação dentro de uma faixa controlável, ao mesmo tempo que permite que produtos de vídeo sejam gerados após
+# Entre imediatamente no estado de conclusão.
 _cross_post_executor = ThreadPoolExecutor(
     max_workers=2,
     thread_name_prefix="mpt-cross-post",
@@ -54,9 +54,9 @@ _CROSS_POST_STATE_RETRY_DELAY_SECONDS = 0.1
 _INTERRUPTED_CROSS_POST_ERROR = (
     "cross-posting was interrupted before the process completed"
 )
-# 视频配乐服务只需实现 ``is_enabled`` 和 ``generate_bgm``。供应商差异集中在
-# 文件扩展名、领域异常和 WebUI 警告代码；任务编排、0 音量短路及失败降级
-# 全部复用同一路径，避免后续新增供应商时维护多份相似流程。
+# O serviço de trilha sonora de vídeo só precisa implementar ``is_enabled`` e ``generate_bgm``. As diferenças entre fornecedores concentram-se em
+# Extensões de arquivo, exceções de domínio e códigos de aviso WebUI; orquestração de tarefas, curto-circuito de volume 0 e degradação de falhas
+# Todos reutilizam o mesmo caminho para evitar a manutenção de vários processos semelhantes ao adicionar novos fornecedores posteriormente.
 _VIDEO_MUSIC_PROVIDERS = {
     "sonilo": {
         "service": sonilo,
@@ -76,12 +76,10 @@ _VIDEO_MUSIC_PROVIDERS = {
 
 
 def _get_video_music_prompt(params: VideoParams) -> str:
-    """
-    读取当前视频配乐供应商实际使用的提示词。
+    """Leia as palavras reais usadas pelo provedor de trilha sonora de vídeo atual.
 
-    新任务统一使用供应商无关字段；旧 Sonilo CLI 参数和历史任务仍可能只有
-    ``sonilo_bgm_prompt``，因此仅在 Sonilo 通用字段为空时读取旧字段。
-    """
+    Novas tarefas usam uniformemente campos neutros em relação ao fornecedor; antigos parâmetros CLI do Sonilo e tarefas históricas ainda podem apenas
+    ``sonilo_bgm_prompt``, portanto o campo antigo só é lido se o campo comum do Sonilo estiver vazio."""
     prompt = str(params.video_music_prompt or "").strip()
     if params.bgm_type == "sonilo" and not prompt:
         prompt = str(params.sonilo_bgm_prompt or "").strip()
@@ -89,7 +87,7 @@ def _get_video_music_prompt(params: VideoParams) -> str:
 
 
 def is_task_busy(task: dict | None) -> bool:
-    """判断任务是否仍在生成或发布，供所有删除入口复用。"""
+    """Determine se a tarefa ainda está sendo gerada ou liberada para reutilização por todas as entradas de exclusão."""
     if not task:
         return False
 
@@ -99,9 +97,9 @@ def is_task_busy(task: dict | None) -> bool:
     except (TypeError, ValueError):
         pass
 
-    # 视频生成和跨平台发布都可能继续读取任务目录。统一视为忙碌状态，
-    # 可以避免 API 与 WebUI 分别维护规则后出现一个允许删除、另一个禁止
-    # 删除的不一致行为。
+    # Tanto a geração de vídeo quanto a publicação multiplataforma podem continuar lendo o diretório de tarefas. unificado como um estado ocupado,
+    # Isso pode evitar a ocorrência de um permitindo a exclusão e outro proibindo as regras após a API e a WebUI manterem as regras separadamente.
+    # Comportamento inconsistente removido.
     return (
         state == const.TASK_STATE_PROCESSING
         or task.get("cross_post_state") in _ACTIVE_CROSS_POST_STATES
@@ -109,13 +107,13 @@ def is_task_busy(task: dict | None) -> bool:
 
 
 def _register_cross_post_future(task_id: str, future: Future) -> None:
-    """登记当前进程持有的发布 Future，供启动恢复和测试判断真实运行状态。"""
+    """Registre o futuro publicado mantido pelo processo atual para recuperação e teste de inicialização para determinar o status real de execução."""
     with _cross_post_registry_lock:
         _cross_post_futures[task_id] = future
 
 
 def _unregister_cross_post_future(task_id: str, future: Future | None = None) -> None:
-    """仅移除匹配的 Future，避免旧回调误删同任务后续注册的新工作。"""
+    """Apenas o Future correspondente é removido para evitar que retornos de chamada antigos excluam acidentalmente novos trabalhos registrados posteriormente com a mesma tarefa."""
     with _cross_post_registry_lock:
         current = _cross_post_futures.get(task_id)
         if current is None or (future is not None and current is not future):
@@ -124,14 +122,14 @@ def _unregister_cross_post_future(task_id: str, future: Future | None = None) ->
 
 
 def _is_cross_post_active_in_process(task_id: str) -> bool:
-    """判断当前进程是否仍持有未结束的发布任务。"""
+    """Determine se o processo atual ainda contém tarefas de publicação inacabadas."""
     with _cross_post_registry_lock:
         future = _cross_post_futures.get(task_id)
         return future is not None and not future.done()
 
 
 def _is_windows_process_alive(process_id: int) -> bool:
-    """通过只读 Win32 API 判断进程状态，避免用 os.kill 误终止进程。"""
+    """Determine o status do processo por meio da API Win32 somente leitura para evitar o encerramento acidental do processo com os.kill."""
     import ctypes
 
     process_query_limited_information = 0x1000
@@ -139,8 +137,8 @@ def _is_windows_process_alive(process_id: int) -> bool:
     error_access_denied = 5
     error_invalid_parameter = 87
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    # ctypes 默认把未声明的返回值当作 32 位 int。Windows 64 位进程句柄可能
-    # 因此被截断，必须显式声明 Win32 函数签名后再调用。
+    # ctypes trata valores de retorno não declarados como inteiros de 32 bits por padrão. O identificador de processo do Windows de 64 bits pode
+    # Portanto, é truncado e a assinatura da função Win32 deve ser declarada explicitamente antes da chamada.
     kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
     kernel32.OpenProcess.restype = ctypes.c_void_p
     kernel32.GetExitCodeProcess.argtypes = [
@@ -160,8 +158,8 @@ def _is_windows_process_alive(process_id: int) -> bool:
         if error_code == error_invalid_parameter:
             return False
         if error_code == error_access_denied:
-            # 进程存在但当前用户无查询权限时，必须保守地视为存活，避免错误
-            # 回收其它账户正在执行的发布任务。
+            # Quando um processo existe, mas o usuário atual não tem permissões de consulta, ele deve ser considerado conservadoramente como ativo para evitar erros.
+            # Recicle tarefas de publicação executadas por outras contas.
             return True
         logger.warning(
             "failed to open cross-post owner process on Windows, "
@@ -184,7 +182,7 @@ def _is_windows_process_alive(process_id: int) -> bool:
 
 
 def _is_cross_post_owner_alive(owner: str | None) -> bool:
-    """判断持久化发布任务的本机进程是否仍存在。"""
+    """Determine se o processo nativo da tarefa de publicação persistente ainda existe."""
     if not owner:
         return False
 
@@ -195,19 +193,19 @@ def _is_cross_post_owner_alive(owner: str | None) -> bool:
         logger.warning(f"invalid cross-post owner metadata: {owner}")
         return False
 
-    # 无法可靠探测其它主机上的进程。共享 Redis 的多主机部署中必须保守地
-    # 视为仍在运行，避免当前节点误删另一节点正在读取的视频文件。
+    # Os processos em outros hosts não podem ser detectados de forma confiável. Seja conservador em implantações multi-host que compartilham Redis
+    # Ele é considerado ainda em execução para evitar que o nó atual exclua acidentalmente o arquivo de vídeo que está sendo lido por outro nó.
     if hostname != socket.gethostname():
         return True
 
-    # 当前进程内是否仍有真实发布工作，已经由 Future 注册表准确判断。运行到
-    # 这里说明注册表中没有对应 Future，即使 owner 与当前进程完全一致，也应
-    # 视为已中断；这可以覆盖终态写入持续失败、Future 已结束的场景。
+    # Se ainda há trabalho de publicação real no processo atual foi determinado com precisão pelo registro Futuro. corra para
+    # Isso mostra que não há Future correspondente no registro. Mesmo que o proprietário seja totalmente consistente com o processo atual, ele deve
+    # Tratado como interrompido; isso pode abranger cenários em que as gravações do estado final continuam falhando e o Futuro terminou.
     if process_id == os.getpid():
         return False
 
-    # Windows 的 os.kill(pid, 0) 与 POSIX 语义不同，可能直接终止目标进程。
-    # 使用只申请查询权限的 Win32 API，不向目标进程发送任何信号。
+    # Os.kill(pid, 0) do Windows tem semântica diferente do POSIX e pode encerrar diretamente o processo de destino.
+    # Use a API Win32 que solicita apenas permissões de consulta e não envia nenhum sinal ao processo de destino.
     if os.name == "nt":
         return _is_windows_process_alive(process_id)
 
@@ -226,15 +224,15 @@ def _is_cross_post_owner_alive(owner: str | None) -> bool:
 
 
 def _mark_task_failed(task_id: str, stage: str, error: str) -> dict:
-    """记录结构化失败信息，并保留任务失败前已经到达的进度。"""
+    """Registre informações estruturadas sobre falhas e retenha o progresso alcançado antes da falha da tarefa."""
     existing_task = None
     try:
         existing_task = sm.state.get_task(task_id)
     except Exception as exc:
         logger.warning(f"failed to read task state before failure update: {exc}")
 
-    # 具体服务函数通常比编排层拥有更准确的错误原因。后续的空结果检查
-    # 不能再用通用文案覆盖它，否则 API 调用方仍然只能看到模糊信息。
+    # Funções de serviço concretas geralmente têm causas de erros mais precisas do que a camada de orquestração. Verificações subsequentes de resultados vazios
+    # Ele não pode mais ser substituído por uma cópia genérica, caso contrário, os chamadores da API ainda verão apenas informações obscuras.
     if (
         existing_task
         and existing_task.get("state") == const.TASK_STATE_FAILED
@@ -289,9 +287,9 @@ def generate_terms(task_id, params, video_script):
     logger.info("\n\n## generating video terms")
     video_terms = params.video_terms
     if not video_terms:
-        # 开启素材按文案顺序匹配后，关键词本身也必须按脚本叙事顺序生成；
-        # 否则后续即使顺序下载和顺序拼接，也只能复用一组全局主题词，
-        # 无法改善“后面内容的画面提前出现”的问题。
+        # Após os materiais serem ativados e combinados na ordem de redação, as próprias palavras-chave também devem ser geradas na ordem narrativa do roteiro;
+        # Caso contrário, mesmo que você baixe e junte sequencialmente no futuro, só poderá reutilizar um conjunto de palavras-chave globais.
+        # O problema de “a tela do seguinte conteúdo aparece mais cedo” não pode ser melhorado.
         video_terms = llm.generate_terms(
             video_subject=params.video_subject,
             video_script=video_script,
@@ -316,8 +314,8 @@ def generate_terms(task_id, params, video_script):
         )
         return None
 
-    # 可选的 TwelveLabs Marengo 语义重排：未启用时返回原顺序，无任何副作用。
-    # 顺序匹配模式下关键词顺序本身就是脚本叙事顺序，必须保持原样，故跳过。
+    # Reordenação semântica opcional do TwelveLabs Marengo: retorna a ordem original quando não habilitada, sem quaisquer efeitos colaterais.
+    # No modo de correspondência sequencial, a ordem das palavras-chave em si é a ordem narrativa do roteiro e deve permanecer a mesma, por isso é ignorada.
     if not params.match_materials_to_script:
         video_terms = twelvelabs.rerank_terms_by_subject(
             video_subject=params.video_subject,
@@ -384,13 +382,11 @@ def _resolve_reusable_voice_preview(
     video_script: str,
     voice_preview: dict | None,
 ) -> tuple[str, float, object] | None:
-    """
-    校验并解析 WebUI 提交的完整试听缓存。
+    """Verifique e analise o cache de audição completo enviado pela WebUI.
 
-    该载荷不是公开 API 参数，只能来自当前进程的 WebUI。即便如此，后台任务
-    仍重新核对文案和全部配音参数，并限制音频位于当前任务目录；任何不一致都
-    回退普通 TTS，不让过期试听污染正式成片。
-    """
+    Essa carga útil não é um parâmetro de API público e só pode vir da WebUI do processo atual. Mesmo assim, tarefas em segundo plano
+    Ainda verifique novamente os direitos autorais e todos os parâmetros de dublagem e limite o áudio para estar no diretório de tarefas atual; quaisquer inconsistências serão
+    Reverta para o TTS normal para evitar que testes expirados contaminem o filme final."""
     if not voice_preview:
         return None
 
@@ -450,8 +446,8 @@ def generate_audio(task_id, params, video_script, voice_preview=None):
         - sub_maker: subtitle maker object if TTS is used, None otherwise
     """
     logger.info("\n\n## generating audio")
-    # /audio 和 /subtitle 请求模型不包含 custom_audio_file，
-    # 这里统一做兼容读取，避免直调接口时抛属性错误。
+    # Os modelos de solicitação /audio e /subtitle não contêm custom_audio_file,
+    # A leitura compatível é realizada aqui para evitar erros de atributos ao ajustar diretamente a interface.
     requested_custom_audio_file = getattr(params, "custom_audio_file", None)
     try:
         custom_audio_file = resolve_custom_audio_file(
@@ -528,9 +524,9 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
         return ""
 
     if sub_maker is None and subtitle_provider != "whisper":
-        # 自定义音频不会经过 TTS，因此没有 Edge/Azure 等 TTS 返回的
-        # sub_maker 时间轴。只有 Whisper 可以直接从音频文件转写字幕；
-        # 其他字幕提供方继续保持原有行为，避免生成错误的空时间轴。
+        # O áudio personalizado não passará pelo TTS, portanto não há retorno de TTS do Edge/Azure etc.
+        # linha do tempo do sub_maker. Somente o Whisper pode transcrever legendas diretamente de arquivos de áudio;
+        # Outros provedores de legendas continuam mantendo seu antigo comportamento e evitando gerar cronogramas erroneamente vazios.
         logger.warning(
             "subtitle maker is missing, skip subtitle generation for provider: "
             f"{subtitle_provider}"
@@ -542,10 +538,10 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
             text=video_script, sub_maker=sub_maker, subtitle_file=subtitle_path
         )
         if not os.path.exists(subtitle_path):
-            # Edge 字幕偶尔会因为时间轴与文案无法匹配而没有产出文件。这里不能
-            # 自动切换到 Whisper，否则首次失败会在用户不知情的情况下下载数 GB
-            # 的模型。只有显式配置 Whisper 时才允许加载模型，Edge 失败则保留
-            # 无字幕视频并记录原因，避免意外的网络和磁盘开销。
+            # As legendas de borda ocasionalmente não produzem arquivos porque a linha do tempo e a cópia não coincidem. Aqui não
+            # Mude automaticamente para o Whisper, caso contrário, uma falha na primeira vez pode baixar gigabytes sem que o usuário saiba
+            # modelo. O carregamento do modelo só é permitido quando o Whisper está configurado explicitamente e será retido se o Edge falhar.
+            # Remova a legenda do vídeo e documente o motivo para evitar sobrecarga inesperada de rede e disco.
             logger.warning(
                 "edge subtitle generation did not produce a subtitle file; "
                 "skip subtitles without falling back to whisper"
@@ -581,8 +577,8 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
         return [material_info.url for material_info in materials]
     else:
         logger.info(f"\n\n## downloading videos from {params.video_source}")
-        # 顺序匹配模式只在用户显式开启时生效。这里强制素材下载按关键词顺序
-        # 轮询，避免某个早期关键词下载太多素材，把后续脚本主题挤出最终时间线。
+        # O modo de correspondência sequencial só entra em vigor quando o usuário o ativa explicitamente. Aqui é obrigatório baixar os materiais por ordem de palavras-chave
+        # A pesquisa evita que uma determinada palavra-chave inicial baixe muito material e extraia os temas de script subsequentes da linha do tempo final.
         downloaded_videos = material.download_videos(
             task_id=task_id,
             search_terms=video_terms,
@@ -618,8 +614,8 @@ def generate_final_videos(
         video_music_provider is not None
         and bgm_service.should_use_bgm(params.bgm_type, params.bgm_volume)
     )
-    # 多视频生成默认会打散素材以增加差异；但“按文案顺序匹配素材”追求的是
-    # 时间线稳定性和可解释性，所以开启后所有输出都使用顺序拼接。
+    # Por padrão, a geração de vários vídeos espalhará os materiais para aumentar as diferenças; mas "combinar os materiais na ordem da cópia" persegue
+    # Estabilidade e interpretabilidade da linha do tempo, para que todas as saídas usem emenda sequencial após serem ativadas.
     if params.match_materials_to_script:
         video_concat_mode = VideoConcatMode.sequential
     elif params.video_count == 1:
@@ -652,8 +648,8 @@ def generate_final_videos(
 
         final_video_path = path.join(utils.task_dir(task_id), f"final-{index}.mp4")
 
-        # 视频配乐模式先明确禁用默认 BGM 解析，避免旧任务残留的 bgm_file 被
-        # 误用。只有音量大于 0 才生成代理并调用付费 API；0 音量统一跳过。
+        # O modo de trilha sonora de vídeo primeiro desativa explicitamente a análise BGM padrão para evitar que o bgm_file restante de tarefas antigas seja
+        # uso indevido. Somente quando o volume for maior que 0 o agente será gerado e a API paga será chamada; se o volume for 0, ele será ignorado uniformemente.
         bgm_file_override = "" if video_music_provider else None
         if video_music_requested:
             service = video_music_provider["service"]
@@ -672,8 +668,8 @@ def generate_final_videos(
                 )
                 bgm_file_override = generated_bgm_path
             except video_music_provider["error_type"] as exc:
-                # 视频、旁白和字幕都已生成时，第三方配乐临时失败不应浪费整条
-                # 任务。当前视频明确禁用 BGM，并把降级结果返回 WebUI 提醒用户。
+                # Quando o vídeo, a narração e as legendas forem gerados, a falha temporária da trilha sonora de terceiros não deve desperdiçar todo o tempo.
+                # Tarefa. O BGM é explicitamente desabilitado para o vídeo atual e o resultado do downgrade é retornado à WebUI para lembrar o usuário.
                 logger.warning(
                     f"{display_name} BGM generation failed: task_id={task_id}, "
                     f"video_index={index}, error={exc}"
@@ -695,9 +691,9 @@ def generate_final_videos(
             and bgm_file_override
             and not bgm_mix_succeeded
         ):
-            # 第三方已成功返回并通过 FFmpeg 校验，但 MoviePy 最终混音仍可能
-            # 因运行环境失败。视频服务会保留无 BGM 成片；API 生成失败时
-            # override 为空，因此不会重复追加警告。
+            # O terceiro retornou com sucesso e passou na verificação do FFmpeg, mas a mixagem final do MoviePy ainda pode
+            # Falha devido ao ambiente operacional. O serviço de vídeo manterá o filme finalizado sem BGM; quando a geração da API falha
+            # override está vazio, portanto o aviso não será anexado repetidamente.
             warnings.append(
                 {
                     "code": video_music_provider["warning_code"],
@@ -715,14 +711,14 @@ def generate_final_videos(
 
 
 def _patch_cross_post_state(task_id: str, **kwargs) -> bool | None:
-    """安全更新发布字段；短暂状态后端故障时有限重试。"""
+    """Campos de liberação de atualização de segurança; tentativas limitadas em caso de falha de back-end de estado transitório."""
     for attempt in range(1, _CROSS_POST_STATE_WRITE_ATTEMPTS + 1):
         try:
             return sm.state.patch_task(task_id, **kwargs)
         except Exception as exc:
-            # Redis 短暂断连不应让任务永久停留在 pending/processing。发布状态
-            # 写入频率很低，这里使用固定次数和短等待即可覆盖瞬时故障，同时
-            # 避免后台线程无限阻塞。最后一次失败保留完整堆栈便于定位。
+            # Uma breve desconexão do Redis não deve deixar as tarefas pendentes/em processamento para sempre. Status de lançamento
+            # A frequência de escrita é muito baixa. Um número fixo de vezes e uma pequena espera podem ser usados ​​para cobrir falhas transitórias. Ao mesmo tempo
+            # Evite o bloqueio infinito de threads em segundo plano. A última falha retém a pilha completa para fácil localização.
             if attempt >= _CROSS_POST_STATE_WRITE_ATTEMPTS:
                 logger.exception(
                     f"failed to update cross-post state after retries, "
@@ -745,7 +741,7 @@ def _record_cross_post_failure(
     error: Exception,
     results: list[dict] | None = None,
 ) -> None:
-    """尽最大努力保存发布失败；状态后端不可用时由日志保留诊断信息。"""
+    """As falhas de publicação são salvas com base no melhor esforço; as informações de diagnóstico são retidas pelo log quando o back-end de status está indisponível."""
     updated = _patch_cross_post_state(
         task_id,
         cross_post_state=const.CROSS_POST_STATE_FAILED,
@@ -758,12 +754,12 @@ def _record_cross_post_failure(
 
 
 def _ensure_cross_post_terminal_state(task_id: str) -> None:
-    """Future 结束后把仍处于活动态的任务收敛为失败。"""
+    """Depois que o Futuro terminar, as tarefas que ainda estão ativas convergirão para o fracasso."""
     try:
         task = sm.state.get_task(task_id)
     except Exception as exc:
-        # 此处已经是 Future 的最终回调，没有后续同步调用方可以处理异常。
-        # 状态后端恢复后，下一次进程启动仍会通过恢复逻辑处理遗留状态。
+        # Este já é o retorno de chamada final do Futuro e não há chamadores síncronos subsequentes para tratar a exceção.
+        # Depois que o back-end do estado for restaurado, o próximo início do processo ainda tratará o estado legado por meio da lógica de recuperação.
         logger.exception(
             f"failed to verify final cross-post state, task_id: {task_id}, error: {exc}"
         )
@@ -784,14 +780,12 @@ def _ensure_cross_post_terminal_state(task_id: str) -> None:
 
 
 def recover_interrupted_cross_posts(page_size: int = 100) -> int | None:
-    """
-    将进程重启后无法恢复的发布任务标记为失败。
+    """Marcar como falhadas as tarefas de publicação que não podem ser recuperadas após o reinício do processo.
 
-    跨平台发布使用当前进程内的线程池，不是持久化任务队列。进程启动时，
-    Redis 中残留的 pending/processing 不会自动继续执行；如果继续把它们视为
-    运行中，用户将永久无法删除任务。这里分页扫描状态，只处理当前进程没有
-    对应 Future 的活动记录，并保留已经生成的视频结果。
-    """
+    A publicação multiplataforma usa o pool de threads no processo atual, não a fila de tarefas persistentes. Quando o processo começar,
+    O restante pendente/processamento no Redis não continuará a ser executado automaticamente; se continuarem a ser tratados como
+    Durante a execução, o usuário nunca poderá excluir a tarefa. O status da varredura de paginação aqui processa apenas o processo atual e não
+    Corresponde aos registros de atividades do Future e retém os resultados de vídeo gerados."""
     recovered = 0
     page = 1
 
@@ -839,7 +833,7 @@ def _run_cross_post(
     platforms: tuple[str, ...],
     youtube_privacy_status: str,
 ) -> None:
-    """后台执行跨平台发布，并只补充发布相关的任务字段。"""
+    """A publicação entre plataformas é executada em segundo plano e apenas campos de tarefas relacionados à publicação são adicionados."""
     results = []
     try:
         state_updated = _patch_cross_post_state(
@@ -849,8 +843,8 @@ def _run_cross_post(
             cross_post_owner=_cross_post_process_owner,
         )
         if state_updated is not True:
-            # False 表示任务已删除，None 表示状态后端暂时不可用。两种情况都
-            # 不应继续调用第三方接口，否则用户无法查询或控制这次发布。
+            # False significa que a tarefa foi excluída, None significa que o back-end de status está temporariamente indisponível. Em ambos os casos
+            # A interface de terceiros não deve continuar a ser chamada, caso contrário o usuário não poderá consultar ou controlar esta versão.
             if state_updated is False:
                 logger.warning(f"skip cross-post for missing task: {task_id}")
             else:
@@ -926,27 +920,27 @@ def _run_cross_post(
         if state_updated is False:
             logger.warning(f"discard cross-post result for missing task: {task_id}")
         elif state_updated is None:
-            # 上传已经结束但结果没有持久化时，不能继续保留 processing。
-            # 失败状态写入会再次经过有限重试，至少让调用方得到明确终态。
+            # Quando o upload terminar, mas os resultados não persistirem, o processamento não poderá continuar.
+            # As gravações de status com falha serão repetidas novamente com tentativas limitadas, permitindo pelo menos que o chamador obtenha um estado final claro.
             _record_cross_post_failure(
                 task_id,
                 RuntimeError("failed to persist final cross-post result"),
                 results,
             )
     except Exception as exc:
-        # 发布失败只影响发布状态，不能反向覆盖已经完成的视频任务。
-        # 异常原文写入任务状态，API 调用方无需访问服务端日志也能定位问题。
+        # A falha na publicação afeta apenas o status de publicação e não pode substituir reversamente as tarefas de vídeo concluídas.
+        # O texto original da exceção é gravado no status da tarefa e o chamador da API pode localizar o problema sem acessar o log do servidor.
         logger.exception(f"cross-post failed, task_id: {task_id}, error: {exc}")
         _record_cross_post_failure(task_id, exc, results)
 
 
 def _run_cross_post_with_slot(*args) -> None:
-    """执行发布任务，并确保成功、失败或异常时都会归还队列容量。"""
+    """Execute tarefas de publicação e garanta que a capacidade da fila seja retornada em caso de sucesso, falha ou exceção."""
     try:
         _run_cross_post(*args)
     except Exception as exc:
-        # _run_cross_post 已处理预期异常；这里是最后一道保护，避免未来新增
-        # 逻辑抛出的异常只保存在无人读取的 Future 中。
+        # _run_cross_post tratou a exceção esperada; esta é a última linha de proteção contra adições futuras
+        # As exceções lançadas pela lógica são armazenadas apenas em Futures que ninguém pode ler.
         task_id = str(args[0]) if args else "unknown"
         logger.exception(
             f"cross-post worker crashed, task_id: {task_id}, error: {exc}"
@@ -958,15 +952,15 @@ def _run_cross_post_with_slot(*args) -> None:
 
 
 def _finalize_cross_post_future(task_id: str, future: Future) -> None:
-    """清理 Future 注册，并确保取消、异常和状态写入失败都能收敛。"""
+    """Limpe registros futuros e garanta que cancelamentos, exceções e falhas de gravação de status convirjam."""
     _unregister_cross_post_future(task_id, future)
 
     try:
         error = future.exception()
     except CancelledError:
         logger.warning(f"cross-post future was cancelled, task_id: {task_id}")
-        # Future 在开始执行前被取消时，worker 的 finally 不会运行，因此需要
-        # 在回调中归还队列容量，并把持久化状态改为失败。
+        # Quando o Future é cancelado antes de iniciar a execução, o trabalhador finalmente não será executado, então ele precisa
+        # Retorne a capacidade da fila no retorno de chamada e altere o status de persistência para falha.
         _cross_post_slots.release()
         _record_cross_post_failure(
             task_id,
@@ -997,7 +991,7 @@ def _schedule_cross_post(
     platforms: list[str],
     youtube_privacy_status: str,
 ) -> str | None:
-    """提交后台发布任务；成功返回 None，调度失败返回可查询的错误原因。"""
+    """Envie uma tarefa de publicação em segundo plano; retorne None se for bem-sucedido e retorne um motivo de erro consultável se o agendamento falhar."""
     if not _cross_post_slots.acquire(blocking=False):
         error = "cross-post queue is full; publishing was skipped"
         logger.warning(
@@ -1051,8 +1045,8 @@ def _run_pipeline(
     logger.info(f"start task: {task_id}, stop_at: {stop_at}")
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=5)
 
-    # 只有完整成片流程需要视频配乐供应商。尽早阻止缺少 Key 的完整任务，避免
-    # 先消耗 LLM、TTS 和素材服务额度；中间产物接口仍可独立使用。
+    # Os fornecedores de trilhas sonoras de vídeo são necessários apenas para todo o processo de produção. Bloqueie antecipadamente tarefas completas com chaves ausentes para evitar
+    # Os créditos LLM, TTS e serviços materiais são consumidos primeiro; a interface do produto intermediário ainda pode ser usada de forma independente.
     video_music_provider = _VIDEO_MUSIC_PROVIDERS.get(params.bgm_type)
     video_music_enabled = (
         stop_at == "video"
@@ -1069,9 +1063,9 @@ def _run_pipeline(
                 f"{display_name} background music requires an API key",
             )
 
-        # WebUI 会限制输入长度，但 API、CLI 和历史任务可以绕过前端控件。
-        # 在生成脚本、配音和素材之前按供应商上限再次校验，避免完整视频合成后
-        # 才由第三方请求拒绝。服务层仍保留同一校验，作为直接调用时的最后防线。
+        # A WebUI limita o comprimento da entrada, mas as tarefas de API, CLI e histórico podem ignorar os controles de front-end.
+        # Antes de gerar roteiros, dublagens e materiais, verifique novamente de acordo com o limite superior do fornecedor para evitar a síntese completa do vídeo.
+        # Foi apenas o pedido do terceiro que foi rejeitado. A camada de serviço ainda mantém a mesma validação que a última linha de defesa ao chamar diretamente.
         music_prompt = _get_video_music_prompt(params)
         max_prompt_length = int(getattr(service, "MAX_PROMPT_LENGTH", 0) or 0)
         if max_prompt_length and len(music_prompt) > max_prompt_length:
@@ -1081,8 +1075,8 @@ def _run_pipeline(
                 (f"{display_name} music prompt exceeds {max_prompt_length} characters"),
             )
 
-        # 供应商可以选择提供不计费的账号前置检查。检查函数只应抛出确定性
-        # 错误；网络波动或权限范围无法确认时由服务层记录警告并继续实际生成。
+        # Os fornecedores podem optar por fornecer pré-verificação de conta gratuitamente. Funções de verificação só devem lançar funções determinísticas
+        # Erro; quando as flutuações da rede ou o intervalo de permissão não podem ser confirmados, a camada de serviço registra um aviso e continua a geração real.
         validate_access = getattr(service, "validate_generation_access", None)
         if callable(validate_access):
             try:
@@ -1192,8 +1186,8 @@ def _run_pipeline(
 
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=50)
 
-    # 仅完整视频生成流程才需要处理视频拼接模式；
-    # 这样可以避免 /subtitle 和 /audio 这类请求访问不存在的字段。
+    # Somente o processo completo de geração de vídeo precisa lidar com o modo de junção de vídeo;
+    # Isso evita solicitações como /subtitle e /audio acessando campos inexistentes.
     if type(params.video_concat_mode) is str:
         params.video_concat_mode = VideoConcatMode(params.video_concat_mode)
 
@@ -1218,8 +1212,8 @@ def _run_pipeline(
         f"task {task_id} finished, generated {len(final_video_paths)} videos."
     )
 
-    # 7. 先完成视频生成任务，再按需提交跨平台发布。第三方上传可能耗时
-    # 数分钟，不应阻塞视频结果返回，也不能反向影响已经生成的成片。
+    # 7. Conclua primeiro a tarefa de geração de vídeo e depois envie-o para publicação em plataforma cruzada, conforme necessário. Uploads de terceiros podem ser demorados
+    # Não deve bloquear o retorno dos resultados dos vídeos por vários minutos, nem deve afetar negativamente os vídeos já gerados.
     cross_post_enabled = (
         upload_post.upload_post_service.is_configured()
         and upload_post.upload_post_service.auto_upload
@@ -1266,8 +1260,8 @@ def _run_pipeline(
                 upload_post.upload_post_service.youtube_privacy_status
             ),
         )
-        # 队列满或线程池关闭属于同步可知的调度失败。任务状态已经由调度函数
-        # 更新，这里同步修正返回快照，避免调用方收到与后续查询不一致的 pending。
+        # A fila está cheia ou o conjunto de threads está fechado, o que é uma falha de agendamento com reconhecimento de sincronização. O status da tarefa foi determinado pela função de agendamento
+        # Atualização, o instantâneo de retorno é corrigido de forma síncrona aqui para evitar que o chamador receba uma pendência que seja inconsistente com as consultas subsequentes.
         if scheduling_error:
             kwargs["cross_post_state"] = const.CROSS_POST_STATE_FAILED
             kwargs["cross_post_error"] = scheduling_error
@@ -1282,7 +1276,7 @@ def start(
     stop_at: str = "video",
     voice_preview: dict | None = None,
 ):
-    """执行任务流水线，并确保未预期异常也会转换成可查询的失败状态。"""
+    """Execute o pipeline de tarefas e garanta que exceções inesperadas também sejam convertidas em status de falha consultável."""
     try:
         return _run_pipeline(
             task_id,

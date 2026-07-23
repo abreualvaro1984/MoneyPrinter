@@ -1,0 +1,54 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ draft.title|default:draft.topic }}</h1>
+  <p>
+    Nicho: <strong>{{ draft.niche }}</strong> · v{{ draft.version }}
+    ·
+    {% if draft.ai_status == "pass" %}<span class="badge ok">{{ draft.get_ai_status_display }}</span>
+    {% elif draft.ai_status == "regen" %}<span class="badge danger">{{ draft.get_ai_status_display }}</span>
+    {% elif draft.ai_status == "review" %}<span class="badge warn">{{ draft.get_ai_status_display }}</span>
+    {% else %}<span class="badge">{{ draft.get_ai_status_display }}</span>{% endif %}
+    {% if draft.ai_score != None %}· score {{ draft.ai_score|floatformat:1 }}{% endif %}
+  </p>
+</header>
+
+<article class="card" style="margin-bottom:1rem;">
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    <div>
+      <label for="id_title">{{ form.title.label }}</label>
+      {{ form.title }}
+    </div>
+    <div>
+      <label for="id_body">{{ form.body.label }}</label>
+      {{ form.body }}
+    </div>
+    <div>
+      <label for="id_hooks">{{ form.hooks.label }}</label>
+      {{ form.hooks }}
+    </div>
+    <div>
+      <label for="id_cta">{{ form.cta.label }}</label>
+      {{ form.cta }}
+    </div>
+    <div>
+      <label for="id_hashtags">{{ form.hashtags.label }}</label>
+      {{ form.hashtags }}
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Salvar e reavaliar</button>
+    </div>
+  </form>
+</article>
+
+<div class="actions">
+  <form method="post" action="{% url 'ui:scripts_rescore' draft.pk %}">{% csrf_token %}
+    <button class="btn secondary" type="submit">Recalcular score</button>
+  </form>
+  <form method="post" action="{% url 'ui:scripts_regenerate' draft.pk %}">{% csrf_token %}
+    <button class="btn warn" type="submit">Regenerar (anti-IA)</button>
+  </form>
+  <a class="btn secondary" href="{% url 'ui:scripts_index' %}">Lista</a>
+</div>
+{% endblock %}

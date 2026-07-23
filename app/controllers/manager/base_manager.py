@@ -25,9 +25,9 @@ class TaskManager:
                 logger.info(
                     f"add task: {func.__name__}, current_tasks: {self.current_tasks}"
                 )
-                # 在线程启动前先预占并发名额。原实现在线程内部递增，连续请求
-                # 可能都在子线程获得锁之前看到 current_tasks=0，从而突破并发
-                # 上限。启动失败时回滚名额，让后续请求仍可正常调度。
+                # Reserve a cota simultânea antes do início do thread. A implementação original é incrementada no thread para solicitações contínuas
+                # É possível ver current_tasks=0 antes que o thread filho adquira o bloqueio, rompendo assim a simultaneidade
+                # limite superior. Quando a inicialização falha, a cota é revertida para que as solicitações subsequentes ainda possam ser agendadas normalmente.
                 self.current_tasks += 1
                 try:
                     self.execute_task(func, *args, **kwargs)
@@ -36,8 +36,8 @@ class TaskManager:
                     raise
             else:
                 queue_size = self.queue_size()
-                # 并发数已满时才进入排队。队列必须有上限，否则匿名接口可以持续
-                # 堆积任务对象和请求参数，最终造成内存耗尽或第三方 API 成本失控。
+                # A fila será enfileirada somente quando o número de solicitações simultâneas estiver completo. A fila deve ser limitada, caso contrário a interface anônima poderá persistir
+                # Empilhe objetos de tarefa e parâmetros de solicitação, eventualmente ficando sem memória ou com custos de API de terceiros fora de controle.
                 if queue_size >= self.max_queued_tasks:
                     logger.warning(
                         f"reject task: {func.__name__}, queue_size: {queue_size}, "
@@ -73,8 +73,8 @@ class TaskManager:
                 func = task_info["func"]
                 args = task_info.get("args", ())
                 kwargs = task_info.get("kwargs", {})
-                # 与直接创建任务保持同一计数时机，避免刚出队的任务尚未在线程
-                # 内计数时，又有新请求绕过队列占用同一个并发名额。
+                # Mantenha o mesmo tempo de contagem das tarefas criadas diretamente para evitar tarefas que acabaram de ser retiradas da fila e ainda não estão no thread.
+                # Durante a contagem interna, novas solicitações ignoram a fila e ocupam a mesma cota simultânea.
                 self.current_tasks += 1
                 try:
                     self.execute_task(func, *args, **kwargs)

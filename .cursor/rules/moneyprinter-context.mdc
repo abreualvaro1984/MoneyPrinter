@@ -1,0 +1,14 @@
+---
+description: Contexto permanente MoneyPrinter — roadmap, agentes, regras de produto
+alwaysApply: true
+---
+
+# MoneyPrinter — contexto do projeto
+
+- Workspace: `F:\Projetos\MoneyPrinter`. Responder em **português**.
+- Antes de implementar features de produto: ler `roadmap.md` e o agent em `agents/` da área tocada.
+- **Áreas separadas** — não misturar Trends, Roteiros, Cortes, Create e Publish numa única ação/botão.
+- MVP atual: Trends (item 1) + Roteiros humanos/anti-IA (item 5) + shell UI Django+HTMX.
+- Ao concluir uma entrega listada no roadmap: marcar `[x]` em `roadmap.md`.
+- Motor de vídeo: `app/`. Painel: `panel/`. UI amigável: `panel/ui/`.
+- Não commitar segredos (`config.toml`, `panel/.env`, tokens OAuth).

@@ -62,17 +62,66 @@ def upload_job(job_id: int) -> dict:
     if not job.output_video:
         raise RuntimeError("Job sem output_video.")
 
+    # Preferência: Destinos de publicação (multi-conta / multi-plataforma)
+    targets = list(job.publish_targets.select_related("account").all())
+    if targets:
+        from panel.publishing import service as publish_service
+        from panel.publishing.models import PublishTarget
+
+        job.status = Job.Status.UPLOADING
+        job.save(update_fields=["status", "updated_at"])
+        job.append_log(f"Publicando em {len(targets)} destino(s)")
+
+        results = publish_service.publish_job_targets(job_id)
+        published = [t for t in results if t.status == PublishTarget.Status.PUBLISHED]
+        failed = [t for t in results if t.status == PublishTarget.Status.FAILED]
+
+        yt = next(
+            (t for t in published if t.account.platform == "youtube" and t.remote_id),
+            None,
+        )
+        if yt:
+            job.youtube_video_id = yt.remote_id
+
+        if published and not failed:
+            job.status = Job.Status.PUBLISHED
+            job.published_at = timezone.now()
+            job.append_log(
+                "Publicado: " + ", ".join(t.remote_url or t.remote_id or str(t.account) for t in published)
+            )
+            job.save()
+            return {"published": len(published), "failed": 0, "targets": [t.pk for t in published]}
+
+        if published and failed:
+            job.status = Job.Status.PUBLISHED
+            job.published_at = timezone.now()
+            job.error = "; ".join(f"{t.account}: {t.error}" for t in failed)
+            job.append_log(f"Parcial: {len(published)} ok, {len(failed)} falha(s)")
+            job.save()
+            return {
+                "published": len(published),
+                "failed": len(failed),
+                "errors": [t.error for t in failed],
+            }
+
+        err = "; ".join(t.error or "falha" for t in failed) or "Nenhum destino publicado"
+        job.mark_failed(err)
+        raise RuntimeError(err)
+
+    # Fallback legado: canal YouTube OneToOne do nicho
     channel = job.channel
     if channel is None:
         channel = getattr(job.niche, "youtube_channel", None)
     if channel is None or not channel.is_ready:
         raise RuntimeError(
-            f"Nicho '{job.niche}' sem canal YouTube conectado. Conecte no admin."
+            f"Job #{job_id} sem Destinos de publicação e nicho '{job.niche}' "
+            "sem canal YouTube conectado. Cadastre Contas sociais + Destinos, "
+            "ou conecte o Canal YouTube legado."
         )
 
     job.status = Job.Status.UPLOADING
     job.save(update_fields=["status", "updated_at"])
-    job.append_log(f"Upload para canal {channel}")
+    job.append_log(f"Upload legado para canal {channel}")
 
     title = job.output_title or job.subject or job.niche.name
     description = job.output_description or ""

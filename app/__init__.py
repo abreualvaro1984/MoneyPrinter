@@ -1,3 +1,3 @@
-"""MoneyPrinterTurbo 应用包元数据。"""
+"""Metadados do pacote da aplicação MoneyPrinterTurbo."""
 
 __version__ = "1.3.2"

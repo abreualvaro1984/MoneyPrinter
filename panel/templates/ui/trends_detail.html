@@ -1,0 +1,57 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Trends #{{ run.id }}</h1>
+  <p>
+    Nicho: <strong>{{ run.niche }}</strong>
+    · Plataformas: {{ run.platforms|join:", " }}
+    {% if run.llm_credential %}· IA: {{ run.llm_credential.name }} ({{ run.llm_credential.provider }}){% endif %}
+  </p>
+</header>
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Resumo da IA</h2>
+  <p>{{ run.summary_pt|default:"Sem resumo." }}</p>
+</article>
+
+<section class="topic-list">
+  {% for t in topics %}
+  <article class="card topic">
+    <div>
+      {% if t.recommendation == "add" %}
+      <span class="badge ok">Adicionar</span>
+      {% elif t.recommendation == "skip" %}
+      <span class="badge danger">Pular</span>
+      {% else %}
+      <span class="badge">?</span>
+      {% endif %}
+      <span class="badge">heat {{ t.heat_score|default:0 }}</span>
+      {% if t.view_count %}<span class="badge">{{ t.view_count }} views</span>{% endif %}
+      <span class="badge">{{ t.platform|default:"?" }}</span>
+      <h3>{{ t.title }}</h3>
+      <p class="muted">{{ t.why }}</p>
+      {% if t.ref_url %}<p><a href="{{ t.ref_url }}" target="_blank" rel="noopener">Referência</a></p>{% endif %}
+    </div>
+    {% if t.recommendation != "skip" %}
+    <form method="post" action="{% url 'ui:trends_use_topic' run.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="topic" value="{{ t.title }}">
+      <button class="btn" type="submit">Usar este tema</button>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'ui:trends_use_topic' run.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="topic" value="{{ t.title }}">
+      <button class="btn secondary" type="submit">Usar mesmo assim</button>
+    </form>
+    {% endif %}
+  </article>
+  {% empty %}
+  <article class="card"><p>Nenhum tema retornado.</p></article>
+  {% endfor %}
+</section>
+
+<p class="actions">
+  <a class="btn secondary" href="{% url 'ui:trends_index' %}">Nova pesquisa</a>
+</p>
+{% endblock %}

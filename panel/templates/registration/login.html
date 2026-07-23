@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar — MoneyPrinter</title>
+  <meta name="description" content="Login do painel MoneyPrinter.">
+  <link rel="stylesheet" href="/static/ui/css/app.css">
+</head>
+<body>
+  <main class="main" style="max-width:420px;margin:10vh auto;">
+    <header class="page-head">
+      <h1>Money<span style="color:var(--accent)">Printer</span></h1>
+      <p>Entre na sua conta do painel.</p>
+    </header>
+    {% if form.errors %}
+    <ul class="messages"><li class="error">Usuário ou senha inválidos.</li></ul>
+    {% endif %}
+    <article class="card">
+      <form method="post" class="form-stack">
+        {% csrf_token %}
+        <div>
+          <label for="id_username">Usuário</label>
+          <input type="text" name="username" id="id_username" autofocus required>
+        </div>
+        <div>
+          <label for="id_password">Senha</label>
+          <input type="password" name="password" id="id_password" required>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn" type="submit">Entrar</button>
+      </form>
+      <p class="muted" style="margin-top:1rem;">
+        Não tem conta? <a href="{% url 'register' %}">Cadastre-se</a>
+      </p>
+    </article>
+  </main>
+</body>
+</html>

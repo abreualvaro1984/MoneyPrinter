@@ -1,0 +1,25 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ page_heading }}</h1>
+  <p>Provider + API key. Você pode ter várias keys do mesmo provider.</p>
+</header>
+
+<article class="card">
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="muted" style="color:var(--danger);">{{ error }}</p>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="actions">
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn secondary" href="{% url 'ui:apis_index' %}">Cancelar</a>
+    </div>
+  </form>
+</article>
+{% endblock %}

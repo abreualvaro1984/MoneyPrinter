@@ -14,7 +14,7 @@ Provide a video <b>topic</b> or <b>keyword</b>, and MoneyPrinterTurbo will gener
 <a href="https://trendshift.io/repositories/8731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8731" alt="harry0703%2FMoneyPrinterTurbo | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 <a href="https://www.star-history.com/harry0703/moneyprinterturbo"><img src="https://api.star-history.com/badge?repo=harry0703/MoneyPrinterTurbo" alt="Star History Rank" style="height: 55px;" height="55"/></a>
 
-English | [简体中文](README.md) | [Releases](https://github.com/harry0703/MoneyPrinterTurbo/releases) | [Issues](https://github.com/harry0703/MoneyPrinterTurbo/issues)
+English | [Português](README.md) | [Chinês simplificado](README-zh.md) | [Releases](https://github.com/harry0703/MoneyPrinterTurbo/releases) | [Issues](https://github.com/harry0703/MoneyPrinterTurbo/issues)
 
 </div>
 
@@ -36,7 +36,7 @@ English | [简体中文](README.md) | [Releases](https://github.com/harry0703/Mo
 
 Thanks to [Kimi](https://platform.kimi.ai?aff=MoneyPrinterTurbo) for sponsoring this project! [Kimi K2.7 Code](https://platform.kimi.ai/docs/guide/kimi-k2-7-code-quickstart) is an open-source, coding-focused agentic model developed by Moonshot AI, with substantial gains on real-world long-horizon coding tasks and higher end-to-end success across complex software engineering workflows. It also cuts thinking-token usage by approximately 30% compared with K2.6. Within MoneyPrinterTurbo, Kimi's LLM powers video creation: it writes the video script and extracts the search keywords that decide the final footage, so the sharper its understanding, the more on-topic the results.
 
-**MoneyPrinterTurbo already supports Kimi. Visit the [Kimi Open Platform](https://platform.kimi.ai?aff=MoneyPrinterTurbo) ([中文站](https://platform.kimi.com?aff=MoneyPrinterTurbo) | [Global](https://platform.kimi.ai?aff=MoneyPrinterTurbo)) to try the API, or explore the cost-effective [Coding Plan](https://www.kimi.com/code?aff=MoneyPrinterTurbo).**
+**MoneyPrinterTurbo already supports Kimi. Visit the [Kimi Open Platform](https://platform.kimi.ai?aff=MoneyPrinterTurbo) ([Site chinês](https://platform.kimi.com?aff=MoneyPrinterTurbo) | [Global](https://platform.kimi.ai?aff=MoneyPrinterTurbo)) to try the API, or explore the cost-effective [Coding Plan](https://www.kimi.com/code?aff=MoneyPrinterTurbo).**
 
 <br>
 <table align="center">

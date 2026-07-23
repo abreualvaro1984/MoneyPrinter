@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title|default:"MoneyPrinter" }}</title>
+  <meta name="description" content="{{ meta_description|default:'Painel MoneyPrinter — fábrica multi-nicho de vídeos.' }}">
+  <meta name="theme-color" content="#0e1117">
+  <link rel="stylesheet" href="{% static 'ui/css/app.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand">Money<span>Printer</span></p>
+      <p class="brand-sub">Fábrica multi-nicho</p>
+      <nav class="nav" aria-label="Principal">
+        <a href="{% url 'ui:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Início</a>
+        <a href="{% url 'ui:nichos' %}" class="{% if request.resolver_match.url_name == 'nichos' %}active{% endif %}">Nichos</a>
+        <a href="{% url 'ui:trends_index' %}" class="{% if 'trends' in request.resolver_match.url_name %}active{% endif %}">Trends</a>
+        <a href="{% url 'ui:scripts_index' %}" class="{% if 'scripts' in request.resolver_match.url_name %}active{% endif %}">Roteiros</a>
+        <a href="{% url 'ui:apis_index' %}" class="{% if 'apis' in request.resolver_match.url_name %}active{% endif %}">APIs de IA</a>
+        <a href="{% url 'ui:cortes' %}" class="{% if request.resolver_match.url_name == 'cortes' %}active{% endif %}">Cortes <span class="soon">em breve</span></a>
+        <a href="{% url 'ui:create' %}" class="{% if request.resolver_match.url_name == 'create' %}active{% endif %}">Create <span class="soon">em breve</span></a>
+        <a href="{% url 'ui:contas' %}" class="{% if request.resolver_match.url_name == 'contas' %}active{% endif %}">Contas <span class="soon">em breve</span></a>
+        <a href="{% url 'ui:publicar' %}" class="{% if request.resolver_match.url_name == 'publicar' %}active{% endif %}">Publicar <span class="soon">em breve</span></a>
+        <a href="/admin/" target="_blank" rel="noopener">Admin</a>
+      </nav>
+    </aside>
+    <main class="main">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

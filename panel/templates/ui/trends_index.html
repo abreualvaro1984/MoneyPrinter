@@ -1,0 +1,53 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Trends</h1>
+  <p>Busca os vídeos com <strong>mais views</strong> e a IA recomenda <strong>adicionar</strong> ou <strong>pular</strong>. Não gera vídeo.</p>
+</header>
+
+{% if llm_count == 0 %}
+<article class="card" style="margin-bottom:1rem;border-color:rgba(240,193,74,.45);">
+  <p>Nenhuma API de IA cadastrada no painel. Cadastre em <a href="{% url 'ui:apis_index' %}">APIs de IA</a> (ou use o <code>config.toml</code> legado).</p>
+</article>
+{% endif %}
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    <div>
+      <label for="id_niche">{{ form.niche.label }}</label>
+      {{ form.niche }}
+    </div>
+    <div>
+      <span class="label">{{ form.platforms.label }}</span>
+      <div class="checks">{{ form.platforms }}</div>
+    </div>
+    <div>
+      <label for="id_llm_credential">{{ form.llm_credential.label }}</label>
+      {{ form.llm_credential }}
+      <p class="muted">Escolha qual API key usar nesta pesquisa.</p>
+    </div>
+    <button class="btn" type="submit">Pesquisar trends quentes</button>
+  </form>
+</article>
+
+{% if recent %}
+<section class="card">
+  <h2>Recentes</h2>
+  <table class="table">
+    <thead><tr><th>#</th><th>Nicho</th><th>IA</th><th>Quando</th><th></th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.niche }}</td>
+        <td>{% if r.llm_credential %}{{ r.llm_credential.name }}{% else %}config.toml{% endif %}</td>
+        <td>{{ r.created_at }}</td>
+        <td><a href="{% url 'ui:trends_detail' r.pk %}">Abrir</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

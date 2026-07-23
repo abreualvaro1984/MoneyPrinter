@@ -1,0 +1,47 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>APIs de IA</h1>
+  <p>Cadastre várias keys (Moonshot, OpenAI, Gemini…). Em Trends você escolhe qual usar.</p>
+</header>
+
+<p class="actions" style="margin-bottom:1rem;">
+  <a class="btn" href="{% url 'ui:apis_create' %}">Nova API</a>
+</p>
+
+<section class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Provider</th>
+        <th>Key</th>
+        <th>Modelo</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in credentials %}
+      <tr>
+        <td>{{ c.name }}{% if c.is_default %} ★{% endif %}</td>
+        <td>{{ c.provider }}</td>
+        <td><code>{{ c.api_key_masked }}</code></td>
+        <td>{{ c.model_name|default:"default" }}</td>
+        <td>{% if c.is_active %}<span class="badge ok">ativa</span>{% else %}<span class="badge">off</span>{% endif %}</td>
+        <td>
+          <a href="{% url 'ui:apis_edit' c.pk %}">Editar</a>
+          ·
+          <form method="post" action="{% url 'ui:apis_delete' c.pk %}" style="display:inline;" onsubmit="return confirm('Excluir esta API?');">
+            {% csrf_token %}
+            <button type="submit" class="btn secondary" style="padding:0.2rem 0.6rem;font-size:0.8rem;">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Nenhuma API cadastrada ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Painel</h1>
+  <p>Áreas separadas: trends, roteiros, cortes, create e publicação. Nada de “um botão faz tudo”.</p>
+</header>
+
+<section class="grid">
+  <article class="card">
+    <h2>Nichos ativos</h2>
+    <p class="stat">{{ niche_count }}</p>
+    <p class="muted">Cadastro no Admin por enquanto.</p>
+  </article>
+  <article class="card">
+    <h2>Trends</h2>
+    <p class="stat">{{ trend_count }}</p>
+    <p class="muted">Pesquisas salvas</p>
+    <p><a class="btn" href="{% url 'ui:trends_index' %}">Abrir Trends</a></p>
+  </article>
+  <article class="card">
+    <h2>Roteiros</h2>
+    <p class="stat">{{ script_count }}</p>
+    <p class="muted">Rascunhos</p>
+    <p><a class="btn" href="{% url 'ui:scripts_index' %}">Abrir Roteiros</a></p>
+  </article>
+</section>
+{% endblock %}

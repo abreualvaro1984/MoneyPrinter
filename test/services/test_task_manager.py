@@ -11,7 +11,7 @@ from app.services import task as task_service
 
 class TestInMemoryTaskManager(unittest.TestCase):
     def test_queue_operations_preserve_task_payload(self):
-        """内存队列应保持函数、位置参数和关键字参数，不得改变任务内容。"""
+        """A fila de memória deve conter funções, argumentos posicionais e argumentos de palavras-chave e não deve alterar o conteúdo da tarefa."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1, max_queued_tasks=2)
         task = {"func": len, "args": ([1, 2],), "kwargs": {}}
 
@@ -23,7 +23,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         self.assertTrue(manager.is_queue_empty())
 
     def test_add_task_rejects_only_after_queue_limit(self):
-        """并发名额用尽后允许排队到上限，超过上限才返回明确错误。"""
+        """Após o esgotamento da cota simultânea, o enfileiramento será permitido até o limite superior. Um erro claro será retornado somente quando o limite superior for excedido."""
         manager = InMemoryTaskManager(max_concurrent_tasks=0, max_queued_tasks=1)
 
         manager.add_task(len, [1])
@@ -33,8 +33,8 @@ class TestInMemoryTaskManager(unittest.TestCase):
 
     def test_add_task_reserves_slot_before_background_thread_runs(self):
         """
-        并发名额必须在线程启动前预占；即使 mock 的线程尚未进入 run_task，
-        第二个请求也应进入队列，不能突破 max_concurrent_tasks。
+        A cota simultânea deve ser reservada antes do thread ser iniciado; mesmo que o thread simulado ainda não tenha entrado em run_task,
+        A segunda solicitação também deve ser enfileirada e max_concurrent_tasks não pode ser excedido.
         """
         manager = InMemoryTaskManager(max_concurrent_tasks=1, max_queued_tasks=1)
 
@@ -47,7 +47,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         self.assertEqual(manager.queue_size(), 1)
 
     def test_add_task_rolls_back_slot_when_thread_cannot_start(self):
-        """线程启动失败不能永久占用并发名额，异常仍应交给调用方处理。"""
+        """A falha na inicialização do thread não pode ocupar permanentemente a cota simultânea e as exceções ainda devem ser tratadas pelo chamador."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1)
 
         with patch.object(
@@ -61,7 +61,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         self.assertEqual(manager.current_tasks, 0)
 
     def test_task_done_starts_next_queued_task(self):
-        """当前任务结束后应释放并发名额，并立即调度队列中的下一个任务。"""
+        """Após o término da tarefa atual, a cota simultânea deverá ser liberada e a próxima tarefa na fila deverá ser agendada imediatamente."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1, max_queued_tasks=2)
         manager.current_tasks = 1
         manager.enqueue({"func": len, "args": ([1, 2],), "kwargs": {}})
@@ -74,7 +74,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         self.assertTrue(manager.is_queue_empty())
 
     def test_task_done_requeues_task_when_thread_cannot_start(self):
-        """出队后若线程启动失败，应回滚名额并把任务放回队列，避免任务丢失。"""
+        """Se o encadeamento falhar ao iniciar após a remoção da fila, a cota deverá ser revertida e a tarefa retornada à fila para evitar a perda da tarefa."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1, max_queued_tasks=1)
         manager.current_tasks = 1
         queued_task = {"func": len, "args": ([1, 2],), "kwargs": {}}
@@ -92,7 +92,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         self.assertEqual(manager.dequeue(), queued_task)
 
     def test_run_task_releases_slot_after_failure(self):
-        """任务函数抛出异常时 finally 仍必须释放名额，避免队列永久阻塞。"""
+        """Quando a função de tarefa lança uma exceção, finalmente ainda deve liberar a cota para evitar o bloqueio permanente da fila."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1)
         manager.current_tasks = 1
 
@@ -104,7 +104,7 @@ class TestInMemoryTaskManager(unittest.TestCase):
         task_done.assert_called_once_with()
 
     def test_execute_task_starts_background_thread(self):
-        """任务执行入口必须启动线程，并把函数参数完整传给 run_task。"""
+        """A entrada de execução da tarefa deve iniciar o thread e passar os parâmetros completos da função para run_task."""
         manager = InMemoryTaskManager(max_concurrent_tasks=1)
         fake_thread = MagicMock()
 
@@ -140,8 +140,8 @@ class TestRedisTaskManager(unittest.TestCase):
 
     def test_enqueue_serializes_video_params_without_mutating_task(self):
         """
-        Redis 只能存 JSON；VideoParams 应转换成字典，但原任务仍需保留模型，
-        避免序列化副作用影响日志、重试或调用方后续读取。
+        Redis Somente JSON pode ser armazenado; VideoParams deve ser convertido em um dicionário, mas a tarefa original ainda precisa reter o modelo.
+        Evite efeitos colaterais de serialização que afetem o registro em log, novas tentativas ou leituras subsequentes pelo chamador.
         """
         params = VideoParams(video_subject="Coffee")
         task = {
@@ -161,7 +161,7 @@ class TestRedisTaskManager(unittest.TestCase):
         self.assertEqual(decoded["kwargs"]["params"]["video_subject"], "Coffee")
 
     def test_dequeue_restores_function_and_video_params(self):
-        """从 Redis 取出的任务应恢复可调用函数和 VideoParams 模型。"""
+        """As tarefas obtidas do Redis devem restaurar funções que podem ser chamadas e modelos VideoParams."""
         payload = {
             "func": "start",
             "args": [],
@@ -182,7 +182,7 @@ class TestRedisTaskManager(unittest.TestCase):
         self.assertEqual(task["kwargs"]["params"].video_subject, "Coffee")
 
     def test_empty_queue_and_size_use_redis_length(self):
-        """队列判空和长度必须直接反映 Redis 当前列表长度。"""
+        """A verificação e o comprimento da fila vazia devem refletir diretamente o comprimento atual da lista do Redis."""
         self.redis_client.lpop.return_value = None
         self.redis_client.llen.side_effect = [0, 2]
 

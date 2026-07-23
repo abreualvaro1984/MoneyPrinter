@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from django.conf import settings
@@ -109,8 +110,8 @@ def get_credentials(channel: YouTubeChannel) -> Credentials:
     return creds
 
 
-def upload_video(
-    channel: YouTubeChannel,
+def upload_video_with_token_data(
+    token_data: dict,
     file_path: str,
     *,
     title: str,
@@ -119,8 +120,24 @@ def upload_video(
     privacy_status: str = "private",
     category_id: str = "22",
     made_for_kids: bool = False,
+    on_token_refresh: Callable[[dict], None] | None = None,
 ) -> dict:
-    creds = get_credentials(channel)
+    if not token_data:
+        raise ValueError("token_data vazio")
+    creds = Credentials(
+        token=token_data.get("token"),
+        refresh_token=token_data.get("refresh_token"),
+        token_uri=token_data.get("token_uri"),
+        client_id=token_data.get("client_id"),
+        client_secret=token_data.get("client_secret"),
+        scopes=token_data.get("scopes") or settings.YOUTUBE_SCOPES,
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        token_data = dict(token_data)
+        token_data["token"] = creds.token
+        if on_token_refresh:
+            on_token_refresh(token_data)
     youtube = build("youtube", "v3", credentials=creds, cache_discovery=False)
     body = {
         "snippet": {
@@ -140,6 +157,34 @@ def upload_video(
     while response is None:
         _, response = request.next_chunk()
     return response
+
+
+def upload_video(
+    channel: YouTubeChannel,
+    file_path: str,
+    *,
+    title: str,
+    description: str = "",
+    tags: list[str] | None = None,
+    privacy_status: str = "private",
+    category_id: str = "22",
+    made_for_kids: bool = False,
+) -> dict:
+    def _persist(data: dict) -> None:
+        channel.set_token_data(data)
+        channel.save(update_fields=["token_json", "updated_at"])
+
+    return upload_video_with_token_data(
+        channel.get_token_data(),
+        file_path,
+        title=title,
+        description=description,
+        tags=tags,
+        privacy_status=privacy_status,
+        category_id=category_id,
+        made_for_kids=made_for_kids,
+        on_token_refresh=_persist,
+    )
 
 
 def search_videos(query: str, *, max_results: int = 10, order: str = "viewCount") -> list[dict]:
@@ -171,9 +216,11 @@ def search_videos(query: str, *, max_results: int = 10, order: str = "viewCount"
         .execute()
     )
     results = []
+    video_ids: list[str] = []
     for item in search.get("items") or []:
         video_id = item["id"]["videoId"]
         snippet = item["snippet"]
+        video_ids.append(video_id)
         results.append(
             {
                 "video_id": video_id,
@@ -183,6 +230,22 @@ def search_videos(query: str, *, max_results: int = 10, order: str = "viewCount"
                 "description": snippet.get("description", ""),
                 "published_at": snippet.get("publishedAt", ""),
                 "thumbnail": (snippet.get("thumbnails") or {}).get("medium", {}).get("url", ""),
+                "view_count": 0,
+                "like_count": 0,
             }
         )
+
+    if video_ids:
+        stats = (
+            youtube.videos()
+            .list(part="statistics", id=",".join(video_ids))
+            .execute()
+        )
+        by_id = {row["id"]: row.get("statistics") or {} for row in stats.get("items") or []}
+        for row in results:
+            st = by_id.get(row["video_id"]) or {}
+            row["view_count"] = int(st.get("viewCount") or 0)
+            row["like_count"] = int(st.get("likeCount") or 0)
+        results.sort(key=lambda r: r.get("view_count", 0), reverse=True)
+
     return results

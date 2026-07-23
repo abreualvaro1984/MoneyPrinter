@@ -19,13 +19,13 @@ _MISSING = object()
 
 
 class _SynchronizedConfig(dict):
-    """保持 dict 使用方式不变，同时让运行期配置写操作服从同一把锁。"""
+    """Mantenha o uso do dict inalterado e faça com que as operações de gravação da configuração do tempo de execução obedeçam ao mesmo bloqueio."""
 
     def __setitem__(self, key, value):
-        # Streamlit 每次整页 rerun 都会把当前控件值重新写回配置。视频任务持有
-        # runtime_config_lock 时，如果值没有变化，这次写入没有任何副作用，也
-        # 不应让刷新后的页面卡在表单中途。真正改变配置的写入仍进入下方锁，
-        # 因而不能在正在生成的视频中途切换 Provider、密钥或其它全局设置。
+        # Streamlit reescreverá o valor de controle atual de volta à configuração sempre que a página inteira for executada novamente. realização de tarefa de vídeo
+        # Quando runtime_config_lock, se o valor não mudar, esta escrita não terá efeitos colaterais e
+        # A página atualizada não deve ficar presa no meio do formulário. As escritas que realmente alteram a configuração ainda vão para o bloqueio inferior,
+        # Portanto, você não pode trocar de provedor, chave ou outras configurações globais no meio da geração de um vídeo.
         current = super().get(key, _MISSING)
         if current is not _MISSING and current == value:
             return
@@ -43,8 +43,8 @@ class _SynchronizedConfig(dict):
             super().clear()
 
     def pop(self, key, default=_MISSING):
-        # ``pop(key, default)`` 在 key 不存在时同样不会改变配置。WebUI 使用
-        # 这种写法表达“采用默认策略”，刷新时必须允许它直接完成。
+        # ``pop(key, default)`` também não altera a configuração quando a chave não existe. Uso da WebUI
+        # Esta forma de escrever expressa "adotar a política padrão", que deve ser concluída diretamente durante a atualização.
         if key not in self:
             if default is _MISSING:
                 raise KeyError(key)
@@ -55,8 +55,8 @@ class _SynchronizedConfig(dict):
             return super().pop(key, default)
 
     def setdefault(self, key, default=None):
-        # 与 __setitem__ 相同，已存在 key 的 setdefault 是只读操作。提前返回
-        # 可以让只读取默认配置的页面刷新不受长任务配置锁影响。
+        # Assim como __setitem__, setdefault para uma chave existente é uma operação somente leitura. Voltar mais cedo
+        # Você pode fazer atualizações de página que leiam apenas a configuração padrão, não afetada por longos bloqueios de configuração de tarefas.
         current = super().get(key, _MISSING)
         if current is not _MISSING:
             return current
@@ -77,25 +77,21 @@ class _SynchronizedConfig(dict):
 
 @contextmanager
 def runtime_config_lock():
-    """
-    在一次依赖全局配置的完整操作期间阻止其它 WebUI 会话改写配置。
+    """Evite que outras sessões WebUI substituam a configuração durante uma operação completa que depende da configuração global.
 
-    当前项目默认绑定本地回环地址，配置仍然是单用户全局配置。这个轻量锁主要
-    保护生成、试听等长操作，避免另一个标签页在操作中途切换 Provider 或密钥。
-    """
+    O projeto atual vincula o endereço de loopback local por padrão e a configuração ainda é uma configuração global de usuário único. Esta fechadura leve principalmente
+    Proteja operações longas, como geração e escuta, para evitar que outra guia troque de provedor ou chave no meio da operação."""
     with _config_save_lock:
         yield
 
 
 @contextmanager
 def try_runtime_config_lock():
-    """
-    尝试获取运行期配置锁，并立即返回是否成功。
+    """Tenta adquirir um bloqueio de configuração de tempo de execução e retorna imediatamente se for bem-sucedido.
 
-    WebUI 试听属于用户主动触发的短操作，不应在后台视频任务持锁时等待数分钟。
-    调用方可以在未获取锁时就近提示用户稍后重试；成功获取后仍能保证试听期间
-    Provider、密钥和模型配置不会被其它会话修改。
-    """
+    A audição da WebUI é uma operação curta acionada pelo usuário e não deve esperar vários minutos enquanto a tarefa de vídeo em segundo plano está bloqueada.
+    O chamador pode solicitar ao usuário que tente novamente mais tarde quando o bloqueio não for adquirido; após adquirir o bloqueio com sucesso, o período de escuta ainda pode ser garantido.
+    A configuração do provedor, da chave e do modelo não será modificada por outras sessões."""
     acquired = _config_save_lock.acquire(blocking=False)
     try:
         yield acquired
@@ -109,18 +105,16 @@ def is_running_in_container(
     containerenv_path: str = "/run/.containerenv",
     cgroup_path: str = "/proc/1/cgroup",
 ) -> bool:
-    """
-    判断当前进程是否运行在容器内。
+    """Determine se o processo atual está em execução no contêiner.
 
-    这个判断主要用于 Ollama 默认地址选择：
-    - 普通本机运行时，`localhost` 指向用户机器本身；
-    - Docker 容器内，`localhost` 指向容器自己，访问宿主机 Ollama
-      通常需要使用 `host.docker.internal`。
+    Este julgamento é usado principalmente para seleção de endereço padrão do Ollama:
+    - Ao rodar em uma máquina local normal, `localhost` aponta para a própria máquina do usuário;
+    - No contêiner Docker, `localhost` aponta para o próprio contêiner e acessa o host Ollama
+      Normalmente você precisa usar `host.docker.internal`.
 
-    不能只判断 `/proc/1/cgroup` 是否存在，因为普通 Linux 也会有这个文件。
-    这里只在检测到明确的容器标记时返回 True，避免误伤非 Docker Linux 用户。
-    参数保留为可注入路径，便于单元测试覆盖不同运行环境。
-    """
+    Você não pode simplesmente determinar se `/proc/1/cgroup` existe, porque o Linux comum também terá este arquivo.
+    Aqui, True só é retornado quando uma tag de contêiner explícita é detectada para evitar ferir acidentalmente usuários que não sejam do Docker Linux.
+    Os parâmetros são reservados como caminhos injetáveis ​​para facilitar o teste de unidade e cobrir diferentes ambientes operacionais."""
     if os.path.isfile(dockerenv_path) or os.path.isfile(containerenv_path):
         return True
 
@@ -142,9 +136,9 @@ def _can_resolve_hostname(hostname: str) -> bool:
 
 
 def _decode_linux_route_gateway(hex_gateway: str) -> str:
-    # /proc/net/route 里的 Gateway 是 16 进制小端序，例如 010011AC 表示
-    # 172.17.0.1。这里单独解析，是为了在原生 Linux Docker 没有
-    # host.docker.internal DNS 记录时，还能尝试访问容器默认网关上的宿主机。
+    # O gateway em /proc/net/route é hexadecimal little endian, por exemplo, 010011AC significa
+    # 172.17.0.1. Ele é analisado separadamente aqui para usá-lo quando o Linux Docker nativo não tiver
+    # host.docker.internal DNS, ele também pode tentar acessar o host no gateway padrão do contêiner.
     if len(hex_gateway) != 8:
         raise ValueError("invalid gateway length")
 
@@ -156,14 +150,12 @@ def _decode_linux_route_gateway(hex_gateway: str) -> str:
 
 
 def get_container_default_gateway_ip(route_path: str = "/proc/net/route") -> str:
-    """
-    读取 Linux 容器里的默认网关 IP。
+    """Leia o IP do gateway padrão no contêiner do Linux.
 
-    Docker Desktop 通常提供 `host.docker.internal`，但原生 Linux Docker
-    默认不一定提供这个 DNS 名称。默认网关通常可以作为访问宿主机服务的
-    兜底地址；如果用户的 Ollama 只监听 127.0.0.1，则仍需要用户让
-    Ollama 监听宿主机网卡或手动配置 `ollama_base_url`。
-    """
+    Docker Desktop geralmente fornece `host.docker.internal`, mas o Docker nativo do Linux
+    Este nome DNS não é necessariamente fornecido por padrão. O gateway padrão geralmente pode ser usado para acessar serviços de host.
+    Endereço secreto; se o Ollama do usuário escuta apenas 127.0.0.1, o usuário ainda precisa deixar
+    Ollama escuta a placa de rede host ou configura `ollama_base_url` manualmente."""
     try:
         with open(route_path, mode="r", encoding="utf-8") as fp:
             route_lines = fp.readlines()
@@ -190,12 +182,10 @@ def get_container_default_gateway_ip(route_path: str = "/proc/net/route") -> str
 
 
 def get_default_ollama_base_url() -> str:
-    """
-    返回 Ollama 的默认 OpenAI-compatible base_url。
+    """Retorna o base_url padrão compatível com OpenAI do Ollama.
 
-    用户显式配置 `ollama_base_url` 时不会走这里；这里只处理“未配置时的
-    最佳默认值”。容器内默认指向宿主机，普通本机运行默认指向 localhost。
-    """
+    Os usuários não irão aqui ao configurar explicitamente `ollama_base_url`; isso só lida com "não configurado"
+    Melhor padrão". O contêiner aponta para o host por padrão, e a máquina local normal é executada para localhost por padrão."""
     if not is_running_in_container():
         return "http://localhost:11434/v1"
 
@@ -241,16 +231,14 @@ def load_config():
 
 
 def save_config():
-    """
-    原子保存运行时配置。
+    """Salvamento atômico da configuração do tempo de execução.
 
-    Streamlit 的不同会话可能在相近时间触发配置保存。直接覆盖 config.toml 时，
-    另一个线程可能读取到只写了一部分的 TOML 内容。这里使用进程内可重入锁串行化
-    保存，并先写入同目录临时文件，再通过 os.replace 原子替换目标文件。
+    Diferentes sessões do Streamlit podem acionar salvamentos de configuração em momentos semelhantes. Ao substituir config.toml diretamente,
+    Outro thread pode ler o conteúdo TOML que foi escrito apenas parcialmente. A serialização de bloqueio reentrante em processo é usada aqui
+    Salve, primeiro grave no arquivo temporário no mesmo diretório e, em seguida, substitua atomicamente o arquivo de destino por meio de os.replace.
 
-    这仍然保留项目现有的单用户全局配置语义，不额外引入复杂的多用户配置系统；
-    主要用于避免多标签页或快速 rerun 时损坏配置文件。
-    """
+    Isso ainda mantém a semântica de configuração global de usuário único existente do projeto, sem introduzir um sistema de configuração multiusuário complexo adicional;
+    Usado principalmente para evitar danos aos arquivos de configuração durante páginas com várias guias ou repetições rápidas."""
     with _config_save_lock:
         config_to_save = dict(_cfg)
         config_to_save["app"] = dict(app)
@@ -261,8 +249,8 @@ def save_config():
         config_to_save["ui"] = dict(ui)
         serialized_config = toml.dumps(config_to_save)
 
-        # WebUI 完整 rerun 结束时会调用保存。内容没有变化时直接返回，避免每次
-        # 点击普通控件都产生一次磁盘写入和 fsync。
+        # Save será chamado no final de uma nova execução completa do WebUI. Retorne diretamente quando o conteúdo não tiver mudado para evitar cada vez
+        # Clicar em um controle normal causará gravação no disco e fsync.
         try:
             with open(config_file, mode="r", encoding="utf-8") as f:
                 if f.read() == serialized_config:
