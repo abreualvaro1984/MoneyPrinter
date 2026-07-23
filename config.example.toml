@@ -81,8 +81,9 @@ sonilo_timeout = 600
 # Registry defaults; only set them when you need an explicit override.
 llm_provider = "moonshot"
 
-# Kimi / Moonshot AI
-# API key: https://platform.kimi.com/console/api-keys
+# Kimi / Moonshot AI (global EN: platform.kimi.ai / api.moonshot.ai)
+# API key: https://platform.kimi.ai/console/api-keys
+# China (.com / api.moonshot.cn): keys are NOT interchangeable with the global platform.
 moonshot_api_key = ""
 moonshot_base_url = ""
 moonshot_model_name = ""

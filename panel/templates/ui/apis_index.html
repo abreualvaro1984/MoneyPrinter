@@ -10,6 +10,7 @@
 </p>
 
 <section class="card">
+  <div class="table-wrap">
   <table class="table">
     <thead>
       <tr>
@@ -30,12 +31,22 @@
         <td>{{ c.model_name|default:"default" }}</td>
         <td>{% if c.is_active %}<span class="badge ok">ativa</span>{% else %}<span class="badge">off</span>{% endif %}</td>
         <td>
+          <button
+            type="button"
+            class="btn secondary btn-compact"
+            hx-post="{% url 'ui:apis_test' c.pk %}"
+            hx-target="#api-test-{{ c.pk }}"
+            hx-swap="innerHTML"
+            hx-indicator="#api-test-busy-{{ c.pk }}"
+          >Testar</button>
           <a href="{% url 'ui:apis_edit' c.pk %}">Editar</a>
           ·
           <form method="post" action="{% url 'ui:apis_delete' c.pk %}" style="display:inline;" onsubmit="return confirm('Excluir esta API?');">
             {% csrf_token %}
-            <button type="submit" class="btn secondary" style="padding:0.2rem 0.6rem;font-size:0.8rem;">Excluir</button>
+            <button type="submit" class="btn secondary btn-compact">Excluir</button>
           </form>
+          <span id="api-test-busy-{{ c.pk }}" class="htmx-indicator muted">testando…</span>
+          <div id="api-test-{{ c.pk }}" class="api-test-slot"></div>
         </td>
       </tr>
       {% empty %}
@@ -43,5 +54,6 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 {% endblock %}

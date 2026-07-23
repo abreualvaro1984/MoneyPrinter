@@ -3,31 +3,60 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ page_title|default:"MoneyPrinter" }}</title>
   <meta name="description" content="{{ meta_description|default:'Painel MoneyPrinter — fábrica multi-nicho de vídeos.' }}">
   <meta name="theme-color" content="#0e1117">
   <link rel="stylesheet" href="{% static 'ui/css/app.css' %}">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script>
+    document.addEventListener("htmx:configRequest", function (event) {
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) event.detail.headers["X-CSRFToken"] = meta.content;
+    });
+  </script>
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
-      <p class="brand">Money<span>Printer</span></p>
-      <p class="brand-sub">Fábrica multi-nicho</p>
+    <header class="topbar">
+      <button
+        type="button"
+        class="nav-toggle"
+        id="nav-toggle"
+        aria-controls="sidebar"
+        aria-expanded="false"
+        aria-label="Abrir menu"
+      >
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+      </button>
+      <p class="brand topbar-brand">Money<span>Printer</span></p>
+    </header>
+
+    <div class="nav-backdrop" id="nav-backdrop" hidden></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <p class="brand">Money<span>Printer</span></p>
+        <p class="brand-sub">Fábrica multi-nicho</p>
+        <button type="button" class="nav-close" id="nav-close" aria-label="Fechar menu">✕</button>
+      </div>
       <nav class="nav" aria-label="Principal">
         <a href="{% url 'ui:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Início</a>
-        <a href="{% url 'ui:nichos' %}" class="{% if request.resolver_match.url_name == 'nichos' %}active{% endif %}">Nichos</a>
+        <a href="{% url 'ui:nichos' %}" class="{% if 'niches' in request.resolver_match.url_name or request.resolver_match.url_name == 'nichos' %}active{% endif %}">Nichos</a>
         <a href="{% url 'ui:trends_index' %}" class="{% if 'trends' in request.resolver_match.url_name %}active{% endif %}">Trends</a>
         <a href="{% url 'ui:scripts_index' %}" class="{% if 'scripts' in request.resolver_match.url_name %}active{% endif %}">Roteiros</a>
         <a href="{% url 'ui:apis_index' %}" class="{% if 'apis' in request.resolver_match.url_name %}active{% endif %}">APIs de IA</a>
+        <a href="{% url 'ui:contas' %}" class="{% if 'account' in request.resolver_match.url_name or request.resolver_match.url_name == 'contas' %}active{% endif %}">Contas</a>
         <a href="{% url 'ui:cortes' %}" class="{% if request.resolver_match.url_name == 'cortes' %}active{% endif %}">Cortes <span class="soon">em breve</span></a>
         <a href="{% url 'ui:create' %}" class="{% if request.resolver_match.url_name == 'create' %}active{% endif %}">Create <span class="soon">em breve</span></a>
-        <a href="{% url 'ui:contas' %}" class="{% if request.resolver_match.url_name == 'contas' %}active{% endif %}">Contas <span class="soon">em breve</span></a>
         <a href="{% url 'ui:publicar' %}" class="{% if request.resolver_match.url_name == 'publicar' %}active{% endif %}">Publicar <span class="soon">em breve</span></a>
         <a href="/admin/" target="_blank" rel="noopener">Admin</a>
       </nav>
     </aside>
+
     <main class="main">
       {% if messages %}
       <ul class="messages">
@@ -39,5 +68,73 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <div id="ai-wait" class="ai-wait" hidden aria-live="assertive" aria-busy="false">
+    <div class="ai-wait-card" role="status">
+      <div class="ai-wait-spinner" aria-hidden="true"></div>
+      <p class="ai-wait-title" id="ai-wait-title">A IA está pensando…</p>
+      <p class="ai-wait-sub" id="ai-wait-sub">Isso pode levar alguns segundos. Não feche a página.</p>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var body = document.body;
+    var toggle = document.getElementById("nav-toggle");
+    var closeBtn = document.getElementById("nav-close");
+    var backdrop = document.getElementById("nav-backdrop");
+
+    function setOpen(open) {
+      if (!toggle) return;
+      body.classList.toggle("nav-open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu");
+      if (backdrop) backdrop.hidden = !open;
+    }
+    function close() { setOpen(false); }
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        setOpen(!body.classList.contains("nav-open"));
+      });
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      if (backdrop) backdrop.addEventListener("click", close);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") close();
+      });
+      document.querySelectorAll(".nav a").forEach(function (link) {
+        link.addEventListener("click", close);
+      });
+      window.matchMedia("(min-width: 900px)").addEventListener("change", function (e) {
+        if (e.matches) close();
+      });
+    }
+
+    var wait = document.getElementById("ai-wait");
+    var waitTitle = document.getElementById("ai-wait-title");
+    var waitSub = document.getElementById("ai-wait-sub");
+    function showAiWait(title, sub) {
+      if (!wait) return;
+      if (waitTitle && title) waitTitle.textContent = title;
+      if (waitSub && sub) waitSub.textContent = sub;
+      wait.hidden = false;
+      wait.setAttribute("aria-busy", "true");
+      body.classList.add("ai-waiting");
+    }
+    document.querySelectorAll("form.js-ai-wait").forEach(function (form) {
+      form.addEventListener("submit", function () {
+        var btn = form.querySelector('[type="submit"]');
+        if (btn) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+        showAiWait(
+          form.getAttribute("data-wait-title") || "A IA está pensando…",
+          form.getAttribute("data-wait-sub") || "Isso pode levar alguns segundos. Não feche a página."
+        );
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

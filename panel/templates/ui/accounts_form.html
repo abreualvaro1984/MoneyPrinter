@@ -1,0 +1,94 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ page_heading }}</h1>
+  <p>Preencha os campos à esquerda. O tutorial à direita explica <strong>o que pegar e onde</strong>.</p>
+</header>
+
+<div class="split">
+  <article class="card">
+    <form method="post" class="form-stack" id="account-form">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+        {% for error in field.errors %}<p style="color:var(--danger);">{{ error }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+      <div class="actions">
+        <button class="btn" type="submit">Salvar no SQLite</button>
+        <a class="btn secondary" href="{% url 'ui:contas' %}">Cancelar</a>
+      </div>
+    </form>
+  </article>
+
+  <aside class="card tutorial" id="tutorial-box">
+    <h2 id="tut-title">{{ tutorial.title }}</h2>
+    <ol id="tut-steps">
+      {% for step in tutorial.steps %}
+      <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+    <h3>O que preencher</h3>
+    <ul id="tut-fields">
+      {% for key, text in tutorial.fields.items %}
+      <li><code>{{ key }}</code>: {{ text }}</li>
+      {% empty %}
+      <li>Selecione a plataforma no formulário.</li>
+      {% endfor %}
+    </ul>
+    <h3>Exemplo de credenciais</h3>
+    <pre id="tut-example" class="code-block">{{ tutorial.credentials_example }}</pre>
+    <h3>Links</h3>
+    <ul id="tut-links">
+      {% for label, url in tutorial.links %}
+      <li><a href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+
+{{ tutorials_json|json_script:"tutorials-data" }}
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("tutorials-data").textContent);
+  const platformSelect = document.getElementById("id_platform");
+  if (!platformSelect) return;
+  function render(platform) {
+    const t = data[platform] || {};
+    document.getElementById("tut-title").textContent = t.title || "Tutorial";
+    const steps = document.getElementById("tut-steps");
+    steps.innerHTML = "";
+    (t.steps || []).forEach(function (s) {
+      const li = document.createElement("li");
+      li.textContent = s;
+      steps.appendChild(li);
+    });
+    const fields = document.getElementById("tut-fields");
+    fields.innerHTML = "";
+    const f = t.fields || {};
+    Object.keys(f).forEach(function (k) {
+      const li = document.createElement("li");
+      li.innerHTML = "<code>" + k + "</code>: " + f[k];
+      fields.appendChild(li);
+    });
+    document.getElementById("tut-example").textContent = t.credentials_example || "{}";
+    const links = document.getElementById("tut-links");
+    links.innerHTML = "";
+    (t.links || []).forEach(function (pair) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = pair[1];
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = pair[0];
+      li.appendChild(a);
+      links.appendChild(li);
+    });
+  }
+  platformSelect.addEventListener("change", function () { render(platformSelect.value); });
+})();
+</script>
+{% endblock %}

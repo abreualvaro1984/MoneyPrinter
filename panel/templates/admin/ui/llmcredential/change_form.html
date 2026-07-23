@@ -1,0 +1,136 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block after_related_objects %}{{ block.super }}{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+(function () {
+  function csrfToken() {
+    var input = document.querySelector("[name=csrfmiddlewaretoken]");
+    return input ? input.value : "";
+  }
+
+  function ensureLink() {
+    const select = document.getElementById("id_provider");
+    if (!select) return;
+    let wrap = document.getElementById("provider-key-link-wrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "provider-key-link-wrap";
+      wrap.style.margin = "8px 0 16px";
+      const a = document.createElement("a");
+      a.id = "provider-key-link";
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.style.fontWeight = "600";
+      a.textContent = "Abrir página da API key desta IA →";
+      wrap.appendChild(a);
+      const tip = document.createElement("div");
+      tip.id = "provider-howto";
+      tip.style.marginTop = "6px";
+      tip.style.opacity = "0.85";
+      tip.style.fontSize = "13px";
+      wrap.appendChild(tip);
+      select.parentNode.appendChild(wrap);
+    }
+    const link = document.getElementById("provider-key-link");
+    const howto = document.getElementById("provider-howto");
+    function sync() {
+      const opt = select.options[select.selectedIndex];
+      const url = opt && opt.getAttribute("data-key-url");
+      const tip = opt && opt.getAttribute("data-howto");
+      if (url) {
+        link.href = url;
+        link.style.display = "";
+      } else {
+        link.style.display = "none";
+      }
+      if (howto) howto.textContent = tip || "";
+    }
+    select.addEventListener("change", sync);
+    sync();
+  }
+
+  function ensureTest() {
+    const apiKey = document.getElementById("id_api_key");
+    if (!apiKey || document.getElementById("llm-test-btn")) return;
+
+    const wrap = document.createElement("div");
+    wrap.id = "llm-test-wrap";
+    wrap.style.margin = "12px 0 8px";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "button default";
+    btn.id = "llm-test-btn";
+    btn.textContent = "Testar API";
+    btn.style.fontWeight = "700";
+
+    const busy = document.createElement("span");
+    busy.id = "api-test-busy";
+    busy.style.display = "none";
+    busy.style.marginLeft = "10px";
+    busy.textContent = "testando…";
+
+    const result = document.createElement("div");
+    result.id = "api-test-result";
+    result.style.marginTop = "8px";
+    result.style.maxWidth = "640px";
+
+    wrap.appendChild(btn);
+    wrap.appendChild(busy);
+    wrap.appendChild(result);
+    apiKey.parentNode.appendChild(wrap);
+
+    const objectId = "{{ original.pk|default:'' }}";
+    btn.addEventListener("click", async function () {
+      result.innerHTML = "";
+      busy.style.display = "inline";
+      btn.disabled = true;
+      try {
+        let url;
+        let body;
+        if (objectId) {
+          url = "/apis/" + objectId + "/testar/";
+          body = new URLSearchParams();
+        } else {
+          url = "/apis/testar/";
+          const provider = document.getElementById("id_provider");
+          body = new URLSearchParams({
+            provider: provider ? provider.value : "",
+            api_key: apiKey.value || "",
+          });
+        }
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrfToken(),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
+          credentials: "same-origin",
+        });
+        result.innerHTML = await resp.text();
+      } catch (err) {
+        result.innerHTML = '<p style="color:#ba2121;">Erro ao testar: ' + err + "</p>";
+      } finally {
+        busy.style.display = "none";
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function boot() {
+    ensureLink();
+    ensureTest();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+{% endblock %}

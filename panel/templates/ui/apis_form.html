@@ -2,24 +2,89 @@
 {% block content %}
 <header class="page-head">
   <h1>{{ page_heading }}</h1>
-  <p>Provider + API key. Você pode ter várias keys do mesmo provider.</p>
+  <p>Escolha a IA e cole <strong>só a API key</strong>. URL e modelo são preenchidos automaticamente.</p>
 </header>
 
-<article class="card">
-  <form method="post" class="form-stack">
-    {% csrf_token %}
-    {% for field in form %}
-    <div>
-      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-      {{ field }}
-      {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
-      {% for error in field.errors %}<p class="muted" style="color:var(--danger);">{{ error }}</p>{% endfor %}
-    </div>
-    {% endfor %}
-    <div class="actions">
-      <button class="btn" type="submit">Salvar</button>
-      <a class="btn secondary" href="{% url 'ui:apis_index' %}">Cancelar</a>
-    </div>
-  </form>
-</article>
+<div class="split">
+  <article class="card">
+    <form method="post" class="form-stack" id="llm-form">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.name == "provider" %}
+        <p class="key-link-wrap" style="margin-top:0.5rem;">
+          <a id="provider-key-link"
+             class="btn secondary"
+             href="{{ form.key_url }}"
+             target="_blank"
+             rel="noopener">
+            Abrir página da API key desta IA
+          </a>
+        </p>
+        <p class="muted" id="provider-howto">{{ form.key_howto }}</p>
+        {% elif field.name == "api_key" %}
+        <p class="muted">{{ field.help_text }}</p>
+        <p class="actions" style="margin-top:0.6rem;">
+          <button
+            type="button"
+            class="btn warn"
+            hx-post="{% url 'ui:apis_test_live' %}"
+            hx-include="#llm-form"
+            hx-target="#api-test-result"
+            hx-swap="innerHTML"
+            hx-indicator="#api-test-busy"
+          >Testar API</button>
+        </p>
+        <p id="api-test-busy" class="htmx-indicator muted">Enviando prompt mínimo…</p>
+        <div id="api-test-result" class="api-test-slot" aria-live="polite"></div>
+        {% elif field.help_text %}
+        <p class="muted">{{ field.help_text }}</p>
+        {% endif %}
+        {% for error in field.errors %}<p style="color:var(--danger);">{{ error }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+      <div class="actions">
+        <button class="btn" type="submit">Salvar</button>
+        <a class="btn secondary" href="{% url 'ui:apis_index' %}">Cancelar</a>
+      </div>
+    </form>
+  </article>
+
+  <aside class="card tutorial">
+    <h2>Links por IA</h2>
+    <ul>
+      {% for p in presets %}
+      <li style="margin-bottom:0.75rem;">
+        <strong>{{ p.label }}</strong><br>
+        <a href="{{ p.key_url }}" target="_blank" rel="noopener">{{ p.key_url }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+
+<script>
+(function () {
+  const select = document.getElementById("id_provider");
+  const link = document.getElementById("provider-key-link");
+  const howto = document.getElementById("provider-howto");
+  if (!select || !link) return;
+  function sync() {
+    const opt = select.options[select.selectedIndex];
+    const url = opt && opt.getAttribute("data-key-url");
+    const tip = opt && opt.getAttribute("data-howto");
+    if (url) {
+      link.href = url;
+      link.style.display = "";
+    } else {
+      link.style.display = "none";
+    }
+    if (howto) howto.textContent = tip || "";
+  }
+  select.addEventListener("change", sync);
+  sync();
+})();
+</script>
 {% endblock %}

@@ -8,17 +8,24 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from panel.niches.models import Niche
+from panel.publishing.models import SocialAccount
 from panel.ui.forms import (
     LlmCredentialForm,
+    NicheDiscoverForm,
     PanelRegisterForm,
     ScriptEditForm,
     ScriptGenerateForm,
+    SocialAccountForm,
     TrendSearchForm,
 )
-from panel.ui.models import LlmCredential, ScriptDraft, TrendRun
+from panel.ui.models import LlmCredential, NicheDiscoveryRun, ScriptDraft, TrendRun
+from panel.ui.services import niches_discover as niche_service
 from panel.ui.services import scripts as script_service
 from panel.ui.services import trends as trends_service
+from panel.ui.services.account_tutorials import ACCOUNT_TUTORIALS, tutorial_for
+from panel.ui.services import llm_test as llm_test_service
 from panel.ui.services.llm_runtime import resolve_credential
+from panel.ui.services.providers import PANEL_LLM_PRESETS
 
 
 def _seo(title: str, description: str) -> dict:
@@ -70,9 +77,7 @@ def placeholder(request: HttpRequest, area: str) -> HttpResponse:
     labels = {
         "cortes": ("Cortes", "Cortes inteligentes de YouTube e arquivos locais (em breve)."),
         "create": ("Create", "Geração de vídeos com imagens no momento certo (em breve)."),
-        "contas": ("Contas", "Agrupamento de contas por nicho (use o Admin por enquanto)."),
         "publicar": ("Publicar", "Destinos e upload multi-plataforma (use o Admin por enquanto)."),
-        "nichos": ("Nichos", "Cadastre nichos no Admin Django por enquanto."),
     }
     title, desc = labels.get(area, ("Área", "Em construção."))
     return render(
@@ -163,9 +168,10 @@ def apis_create(request: HttpRequest) -> HttpResponse:
         request,
         "ui/apis_form.html",
         {
-            **_seo("Nova API de IA — MoneyPrinter", "Cadastre provider + API key."),
+            **_seo("Nova API de IA — MoneyPrinter", "Cadastre só a API key."),
             "form": form,
             "page_heading": "Nova API de IA",
+            "presets": PANEL_LLM_PRESETS,
         },
     )
 
@@ -183,9 +189,10 @@ def apis_edit(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "ui/apis_form.html",
         {
-            **_seo(f"Editar {cred.name} — MoneyPrinter", "Atualize a credencial de IA."),
+            **_seo(f"Editar {cred.name} — MoneyPrinter", "Atualize a API key."),
             "form": form,
             "page_heading": f"Editar {cred.name}",
+            "presets": PANEL_LLM_PRESETS,
         },
     )
 
@@ -197,6 +204,34 @@ def apis_delete(request: HttpRequest, pk: int) -> HttpResponse:
     cred.delete()
     messages.info(request, "API removida.")
     return redirect("ui:apis_index")
+
+
+@login_required
+@require_POST
+def apis_test(request: HttpRequest, pk: int) -> HttpResponse:
+    """Testa uma credencial já salva com um prompt mínimo."""
+    cred = get_object_or_404(LlmCredential, pk=pk)
+    result = llm_test_service.test_llm_credential(cred)
+    return render(
+        request,
+        "ui/partials/api_test_result.html",
+        {"result": result},
+    )
+
+
+@login_required
+@require_POST
+def apis_test_live(request: HttpRequest) -> HttpResponse:
+    """Testa provider + key do formulário (antes ou depois de salvar)."""
+    result = llm_test_service.test_llm_draft(
+        provider=request.POST.get("provider", ""),
+        api_key=request.POST.get("api_key", ""),
+    )
+    return render(
+        request,
+        "ui/partials/api_test_result.html",
+        {"result": result},
+    )
 
 
 @login_required
@@ -306,3 +341,201 @@ def scripts_rescore(request: HttpRequest, pk: int) -> HttpResponse:
     script_service.rescore(draft)
     messages.info(request, "Score anti-IA atualizado.")
     return redirect("ui:scripts_detail", pk=pk)
+
+
+# --- Nichos (descoberta IA + cadastro SQLite) ---
+
+
+@login_required
+def niches_index(request: HttpRequest) -> HttpResponse:
+    roots = Niche.objects.filter(parent__isnull=True, is_active=True).prefetch_related(
+        "children"
+    )
+    latest = NicheDiscoveryRun.objects.filter(kind=NicheDiscoveryRun.Kind.ROOT).first()
+    form = NicheDiscoverForm()
+    return render(
+        request,
+        "ui/niches_index.html",
+        {
+            **_seo(
+                "Nichos — MoneyPrinter",
+                "A IA sugere nichos quentes; você adiciona os que quiser no SQLite.",
+            ),
+            "roots": roots,
+            "latest": latest,
+            "form": form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def niches_discover(request: HttpRequest) -> HttpResponse:
+    form = NicheDiscoverForm(request.POST)
+    cred = None
+    if form.is_valid():
+        cred = form.cleaned_data.get("llm_credential") or resolve_credential(None)
+    else:
+        cred = resolve_credential(None)
+    run = niche_service.discover_root_niches(llm_credential=cred)
+    messages.success(request, f"Descoberta #{run.pk}: {len(run.suggestions_json)} nichos sugeridos.")
+    return redirect("ui:niches_discovery", pk=run.pk)
+
+
+@login_required
+def niches_discovery(request: HttpRequest, pk: int) -> HttpResponse:
+    run = get_object_or_404(
+        NicheDiscoveryRun.objects.select_related("parent_niche", "llm_credential"),
+        pk=pk,
+    )
+    return render(
+        request,
+        "ui/niches_discovery.html",
+        {
+            **_seo(
+                f"Descoberta #{run.pk} — MoneyPrinter",
+                run.summary_pt[:160] if run.summary_pt else "Sugestões de nichos.",
+            ),
+            "run": run,
+            "suggestions": run.suggestions_json or [],
+        },
+    )
+
+
+@login_required
+@require_POST
+def niches_add_suggestion(request: HttpRequest, pk: int) -> HttpResponse:
+    run = get_object_or_404(NicheDiscoveryRun, pk=pk)
+    idx = request.POST.get("index")
+    try:
+        item = (run.suggestions_json or [])[int(idx)]
+    except (TypeError, ValueError, IndexError):
+        messages.error(request, "Sugestão inválida.")
+        return redirect("ui:niches_discovery", pk=pk)
+    niche = niche_service.add_suggestion_as_niche(
+        name=item.get("name", ""),
+        why=item.get("why", ""),
+        keywords=item.get("keywords") or [],
+        parent=run.parent_niche,
+    )
+    messages.success(request, f"Nicho salvo: {niche}")
+    if run.kind == NicheDiscoveryRun.Kind.ROOT:
+        return redirect("ui:niches_detail", pk=niche.pk)
+    return redirect("ui:niches_detail", pk=run.parent_niche_id or niche.pk)
+
+
+@login_required
+def niches_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    niche = get_object_or_404(Niche.objects.prefetch_related("children"), pk=pk)
+    latest_sub = (
+        NicheDiscoveryRun.objects.filter(
+            kind=NicheDiscoveryRun.Kind.SUB, parent_niche=niche
+        ).first()
+    )
+    form = NicheDiscoverForm()
+    return render(
+        request,
+        "ui/niches_detail.html",
+        {
+            **_seo(f"{niche.name} — Nicho", niche.briefing[:160] if niche.briefing else ""),
+            "niche": niche,
+            "subniches": niche.children.filter(is_active=True),
+            "latest_sub": latest_sub,
+            "form": form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def niches_discover_subs(request: HttpRequest, pk: int) -> HttpResponse:
+    niche = get_object_or_404(Niche, pk=pk)
+    form = NicheDiscoverForm(request.POST)
+    cred = resolve_credential(None)
+    if form.is_valid():
+        cred = form.cleaned_data.get("llm_credential") or cred
+    run = niche_service.discover_subniches(niche, llm_credential=cred)
+    messages.success(request, f"{len(run.suggestions_json)} subnichos sugeridos.")
+    return redirect("ui:niches_discovery", pk=run.pk)
+
+
+# --- Contas sociais + tutorial ---
+
+
+@login_required
+def accounts_index(request: HttpRequest) -> HttpResponse:
+    accounts = SocialAccount.objects.select_related("niche").all()
+    return render(
+        request,
+        "ui/accounts_index.html",
+        {
+            **_seo(
+                "Contas — MoneyPrinter",
+                "Cadastre contas por plataforma com tutorial passo a passo.",
+            ),
+            "accounts": accounts,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def accounts_create(request: HttpRequest) -> HttpResponse:
+    form = SocialAccountForm(request.POST or None)
+    platform = (request.POST.get("platform") or request.GET.get("platform") or "youtube").strip()
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        if obj.credentials_json and obj.status == SocialAccount.Status.DRAFT:
+            obj.status = SocialAccount.Status.CONNECTED
+        obj.save()
+        messages.success(request, f"Conta {obj} salva no SQLite.")
+        return redirect("ui:accounts_index")
+    if form.is_bound and form.data.get("platform"):
+        platform = form.data.get("platform")
+    return render(
+        request,
+        "ui/accounts_form.html",
+        {
+            **_seo("Nova conta — MoneyPrinter", "Tutorial + cadastro de conta social."),
+            "form": form,
+            "page_heading": "Nova conta social",
+            "tutorial": tutorial_for(platform),
+            "tutorials_json": ACCOUNT_TUTORIALS,
+            "selected_platform": platform,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def accounts_edit(request: HttpRequest, pk: int) -> HttpResponse:
+    account = get_object_or_404(SocialAccount, pk=pk)
+    form = SocialAccountForm(request.POST or None, instance=account)
+    platform = account.platform
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Conta atualizada.")
+        return redirect("ui:accounts_index")
+    if form.is_bound and form.data.get("platform"):
+        platform = form.data.get("platform")
+    return render(
+        request,
+        "ui/accounts_form.html",
+        {
+            **_seo(f"Editar {account.name} — MoneyPrinter", "Atualize a conta social."),
+            "form": form,
+            "page_heading": f"Editar {account.name}",
+            "tutorial": tutorial_for(platform),
+            "tutorials_json": ACCOUNT_TUTORIALS,
+            "selected_platform": platform,
+        },
+    )
+
+
+@login_required
+@require_POST
+def accounts_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    account = get_object_or_404(SocialAccount, pk=pk)
+    account.delete()
+    messages.info(request, "Conta removida.")
+    return redirect("ui:accounts_index")

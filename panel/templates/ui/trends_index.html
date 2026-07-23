@@ -12,7 +12,12 @@
 {% endif %}
 
 <article class="card" style="margin-bottom:1.25rem;">
-  <form method="post" class="form-stack">
+  <form
+    method="post"
+    class="form-stack js-ai-wait"
+    data-wait-title="Pesquisando trends quentes…"
+    data-wait-sub="A IA está analisando os vídeos. Não feche a página."
+  >
     {% csrf_token %}
     <div>
       <label for="id_niche">{{ form.niche.label }}</label>
@@ -34,6 +39,7 @@
 {% if recent %}
 <section class="card">
   <h2>Recentes</h2>
+  <div class="table-wrap">
   <table class="table">
     <thead><tr><th>#</th><th>Nicho</th><th>IA</th><th>Quando</th><th></th></tr></thead>
     <tbody>
@@ -48,6 +54,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 {% endif %}
 {% endblock %}

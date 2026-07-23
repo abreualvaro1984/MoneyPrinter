@@ -74,13 +74,17 @@ Contexto permanente dos agentes: [`agents/`](agents/).
 ## Item 6 — Contas agrupadas por nicho (parcial / futuro UI)
 
 - [x] Modelo `SocialAccount` com FK opcional para `Niche` (`panel/publishing`)
-- [ ] UI amigável de agrupamento nicho → várias contas/plataformas
+- [x] UI amigável de contas + tutorial por plataforma (`/contas/`)
+- [x] Descoberta de nichos/subnichos pela IA com botão Add (SQLite)
+- [x] Cadastro de API de IA só com key (ChatGPT, Gemini, Kimi, DeepSeek, Z.AI)
+- [x] Botão Testar API (prompt mínimo) no cadastro/lista de IAs
 
 ---
 
 ## Item 7 — UI gráfica + SEO (contínuo)
 
 - [x] Shell dark colorido (Fase 1)
+- [x] Layout mobile-first (menu drawer, tabelas scroll, touch targets)
 - [ ] Polish visual, motion leve, acessibilidade
 - [ ] SEO contínuo nas páginas públicas/operacionais
 

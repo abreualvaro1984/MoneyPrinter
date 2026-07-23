@@ -7,7 +7,13 @@
 
 <article class="card" style="margin-bottom:1.25rem;">
   <h2>Gerar novo</h2>
-  <form method="post" action="{% url 'ui:scripts_generate' %}" class="form-stack">
+  <form
+    method="post"
+    action="{% url 'ui:scripts_generate' %}"
+    class="form-stack js-ai-wait"
+    data-wait-title="Gerando roteiro…"
+    data-wait-sub="A IA está escrevendo o texto. Aguarde alguns segundos."
+  >
     {% csrf_token %}
     <div>
       <label for="id_niche">{{ form.niche.label }}</label>
@@ -23,6 +29,7 @@
 
 <section class="card">
   <h2>Rascunhos</h2>
+  <div class="table-wrap">
   <table class="table">
     <thead>
       <tr><th>Título</th><th>Nicho</th><th>Anti-IA</th><th>Score</th><th></th></tr>
@@ -46,5 +53,6 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 {% endblock %}

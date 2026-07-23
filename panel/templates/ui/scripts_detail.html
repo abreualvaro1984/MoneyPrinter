@@ -46,7 +46,13 @@
   <form method="post" action="{% url 'ui:scripts_rescore' draft.pk %}">{% csrf_token %}
     <button class="btn secondary" type="submit">Recalcular score</button>
   </form>
-  <form method="post" action="{% url 'ui:scripts_regenerate' draft.pk %}">{% csrf_token %}
+  <form
+    method="post"
+    action="{% url 'ui:scripts_regenerate' draft.pk %}"
+    class="js-ai-wait"
+    data-wait-title="Regenerando roteiro…"
+    data-wait-sub="Reescrevendo com tom mais humano. Aguarde."
+  >{% csrf_token %}
     <button class="btn warn" type="submit">Regenerar (anti-IA)</button>
   </form>
   <a class="btn secondary" href="{% url 'ui:scripts_index' %}">Lista</a>

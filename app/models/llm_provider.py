@@ -73,9 +73,10 @@ LLM_PROVIDER_REGISTRY = (
     LLMProviderSpec(
         "moonshot",
         "Kimi / Moonshot AI",
-        api_key_url="https://platform.kimi.com/console/api-keys?aff=MoneyPrinterTurbo",
+        # Plataforma global (EN). .com/.cn = China; keys não são intercambiáveis com .ai.
+        api_key_url="https://platform.kimi.ai/console/api-keys",
         default_model="kimi-k2.7-code",
-        default_base_url="https://api.moonshot.cn/v1",
+        default_base_url="https://api.moonshot.ai/v1",
     ),
     # Fabricantes originais de modelos convencionais e fabricantes de nuvem
     LLMProviderSpec(
@@ -138,6 +139,13 @@ LLM_PROVIDER_REGISTRY = (
         api_key_url="https://console.x.ai/",
         default_model="grok-4.3",
         default_base_url="https://api.x.ai/v1",
+    ),
+    LLMProviderSpec(
+        "zai",
+        "Z.AI",
+        api_key_url="https://z.ai/manage-apikey/apikey-list",
+        default_model="glm-5.2",
+        default_base_url="https://api.z.ai/api/paas/v4",
     ),
     LLMProviderSpec(
         "minimax",

@@ -12,6 +12,14 @@ class Niche(models.Model):
 
     name = models.CharField("Nome", max_length=120, unique=True)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+        verbose_name="Nicho pai (subnicho)",
+    )
     briefing = models.TextField(
         "Briefing do nicho",
         blank=True,
@@ -60,6 +68,8 @@ class Niche(models.Model):
         ordering = ["name"]
 
     def __str__(self) -> str:
+        if self.parent_id:
+            return f"{self.parent.name} › {self.name}"
         return self.name
 
     def save(self, *args, **kwargs):

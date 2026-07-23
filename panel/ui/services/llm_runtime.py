@@ -15,7 +15,7 @@ def use_llm_credential(credential: LlmCredential | None) -> Iterator[None]:
         return
 
     ensure_repo_on_path()
-    from app.config import config, runtime_config_lock
+    from app.config import config
 
     provider = (credential.provider or "").strip()
     if not provider:
@@ -32,7 +32,7 @@ def use_llm_credential(credential: LlmCredential | None) -> Iterator[None]:
         overrides[f"{provider}_base_url"] = credential.base_url.strip()
 
     previous: dict = {}
-    with runtime_config_lock():
+    with config.runtime_config_lock():
         for key, value in overrides.items():
             previous[key] = config.app.get(key)
             config.app[key] = value

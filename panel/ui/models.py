@@ -61,6 +61,41 @@ class LlmCredential(models.Model):
         return f"{key[:4]}…{key[-4:]}"
 
 
+class NicheDiscoveryRun(models.Model):
+    """Resultado de pesquisa de nichos/subnichos pela IA (SQLite)."""
+
+    class Kind(models.TextChoices):
+        ROOT = "root", "Nichos principais"
+        SUB = "sub", "Subnichos"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.ROOT)
+    parent_niche = models.ForeignKey(
+        Niche,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="discovery_runs",
+    )
+    llm_credential = models.ForeignKey(
+        LlmCredential,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="niche_discoveries",
+    )
+    summary_pt = models.TextField(blank=True)
+    suggestions_json = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Descoberta de nichos"
+        verbose_name_plural = "Descobertas de nichos"
+
+    def __str__(self) -> str:
+        return f"Discovery #{self.pk} ({self.kind})"
+
+
 class TrendRun(models.Model):
     """Uma execução de pesquisa de trends (área Trends)."""
 
