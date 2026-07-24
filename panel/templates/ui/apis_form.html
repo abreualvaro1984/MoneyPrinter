@@ -1,0 +1,133 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ page_heading }}</h1>
+  <p>Escolha a IA, o <strong>modelo</strong> e cole a API key. A URL da API é preenchida automaticamente.</p>
+</header>
+
+<div class="split">
+  <article class="card">
+    <form method="post" class="form-stack" id="llm-form">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.name == "provider" %}
+        <p class="key-link-wrap" style="margin-top:0.5rem;">
+          <a id="provider-key-link"
+             class="btn secondary"
+             href="{{ form.key_url }}"
+             target="_blank"
+             rel="noopener">
+            Abrir página da API key desta IA
+          </a>
+        </p>
+        <p class="muted" id="provider-howto">{{ form.key_howto }}</p>
+        {% elif field.name == "api_key" %}
+        <p class="muted">{{ field.help_text }}</p>
+        <p class="actions" style="margin-top:0.6rem;">
+          <button
+            type="button"
+            class="btn warn"
+            hx-post="{% url 'ui:apis_test_live' %}"
+            hx-include="#llm-form"
+            hx-target="#api-test-result"
+            hx-swap="innerHTML"
+            hx-indicator="#api-test-busy"
+          >Testar API</button>
+        </p>
+        <p id="api-test-busy" class="htmx-indicator muted">Enviando prompt mínimo…</p>
+        <div id="api-test-result" class="api-test-slot" aria-live="polite"></div>
+        {% elif field.help_text %}
+        <p class="muted">{{ field.help_text }}</p>
+        {% endif %}
+        {% for error in field.errors %}<p style="color:var(--danger);">{{ error }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+      <div class="actions">
+        <button class="btn" type="submit">Salvar</button>
+        <a class="btn secondary" href="{% url 'ui:apis_index' %}">Cancelar</a>
+      </div>
+    </form>
+  </article>
+
+  <aside class="card tutorial">
+    <h2>Links por IA</h2>
+    <ul>
+      {% for p in presets %}
+      <li style="margin-bottom:0.75rem;">
+        <strong>{{ p.label }}</strong><br>
+        <a href="{{ p.key_url }}" target="_blank" rel="noopener">{{ p.key_url }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+
+<script type="application/json" id="llm-models-catalog">{{ form.models_catalog_json|safe }}</script>
+<script>
+(function () {
+  const select = document.getElementById("id_provider");
+  const modelSelect = document.getElementById("id_model_name");
+  const link = document.getElementById("provider-key-link");
+  const howto = document.getElementById("provider-howto");
+  if (!select || !link) return;
+
+  let catalog = {};
+  try {
+    const el = document.getElementById("llm-models-catalog");
+    catalog = el ? JSON.parse(el.textContent || "{}") : {};
+  } catch (e) {
+    catalog = {};
+  }
+
+  function fillModels(keepValue) {
+    if (!modelSelect) return;
+    const provider = select.value;
+    const models = catalog[provider] || [];
+    const previous = keepValue || modelSelect.value || "";
+    modelSelect.innerHTML = "";
+    let found = false;
+    models.forEach(function (m) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === previous) {
+        opt.selected = true;
+        found = true;
+      }
+      modelSelect.appendChild(opt);
+    });
+    if (previous && !found) {
+      const opt = document.createElement("option");
+      opt.value = previous;
+      opt.textContent = previous;
+      opt.selected = true;
+      modelSelect.insertBefore(opt, modelSelect.firstChild);
+    } else if (!found && models.length) {
+      modelSelect.value = models[0];
+    }
+  }
+
+  function syncProviderMeta() {
+    const opt = select.options[select.selectedIndex];
+    const url = opt && opt.getAttribute("data-key-url");
+    const tip = opt && opt.getAttribute("data-howto");
+    if (url) {
+      link.href = url;
+      link.style.display = "";
+    } else {
+      link.style.display = "none";
+    }
+    if (howto) howto.textContent = tip || "";
+  }
+
+  select.addEventListener("change", function () {
+    syncProviderMeta();
+    fillModels("");
+  });
+  syncProviderMeta();
+})();
+</script>
+{% endblock %}

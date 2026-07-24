@@ -1,0 +1,37 @@
+{% extends "admin/change_form.html" %}
+
+{% block field_sets %}
+<div class="module aligned" style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--border-color, #ccc);border-radius:8px;background:var(--darkened-bg, #f8f8f8);">
+  <h2 style="margin-top:0;">API key do YouTube (pesquisa / trends / nichos)</h2>
+  <p style="margin:0 0 10px;">
+    A pesquisa do painel usa a <strong>YouTube Data API v3</strong> com API key
+    (não assiste vídeos na sua conta — não zoe o algoritmo).
+    Cole a key na UI do usuário: <a href="/apis/">/apis/</a> → YouTube Data API
+    (fica no banco). O <code>.env</code> é só fallback.
+  </p>
+  <p style="margin:0;display:flex;flex-wrap:wrap;gap:10px 16px;">
+    <a
+      href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+      target="_blank"
+      rel="noopener"
+      style="font-weight:700;"
+    >1) Ativar YouTube Data API v3 →</a>
+    <a
+      href="https://console.cloud.google.com/apis/credentials"
+      target="_blank"
+      rel="noopener"
+      style="font-weight:700;"
+    >2) Criar / copiar API key →</a>
+    <a
+      href="https://developers.google.com/youtube/v3/getting-started"
+      target="_blank"
+      rel="noopener"
+    >Docs oficiais</a>
+  </p>
+  <p style="margin:10px 0 0;opacity:0.85;font-size:13px;">
+    Este formulário conecta o <strong>canal (OAuth)</strong> para upload.
+    A API key é só para pesquisa e fica no <code>.env</code>, não neste cadastro.
+  </p>
+</div>
+{{ block.super }}
+{% endblock %}

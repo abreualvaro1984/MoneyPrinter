@@ -18,9 +18,9 @@ _api_key_lock = threading.Lock()
 
 
 def _get_tls_verify() -> bool:
-    # 默认开启 TLS 证书校验，防止素材搜索和下载过程被中间人篡改。
-    # 仅在企业代理、自签证书等明确需要的场景下，允许用户通过
-    # `config.toml` 显式设置 `tls_verify = false` 临时关闭。
+    # A verificação do certificado TLS é habilitada por padrão para evitar que o processo de busca e download de materiais seja adulterado por intermediários.
+    # Somente em cenários claramente exigidos, como agências corporativas e certificados autoassinados, os usuários podem passar
+    # A configuração explícita de `tls_verify = false` em `config.toml` está temporariamente desativada.
     tls_verify = config.app.get("tls_verify", True)
     if isinstance(tls_verify, str):
         tls_verify = tls_verify.strip().lower() not in ("0", "false", "no", "off")
@@ -170,25 +170,23 @@ def search_videos_coverr(
     minimum_duration: int,
     video_aspect: VideoAspect = VideoAspect.portrait,
 ) -> List[MaterialInfo]:
-    """
-    Coverr (https://coverr.co) - free HD/4K stock videos,
-    subject to Coverr license terms (https://coverr.co/license).
+    """Coverr (https://coverr.co) - vídeos gratuitos em HD/4K,
+    sujeito aos termos de licença Coverr (https://coverr.co/license).
 
-    Coverr API notes (based on official docs at api.coverr.co/docs/):
-      - 鉴权: Authorization: Bearer <api_key>
-      - 搜索端点: GET /videos?query=...,响应结构 {"hits": [...], ...}
-      - 加 ?urls=true 在搜索响应里直接返回 mp4 直链
-      - URL 是 signed JWT(绑定 API key,无过期时间)
-      - Coverr 库以 16:9 横屏为主,9:16 portrait 占比极低(约 1%)
-        因此本函数不做 aspect_ratio 过滤,由下游 video.py 的
-        resize + letterbox 逻辑统一处理
-      - duration 字段同时存在 number 和 string 两种形态,本函数都接受
+    Notas da API Coverr (com base em documentos oficiais em api.coverr.co/docs/):
+      - Autenticação: Autorização: Portador <api_key>
+      - Endpoint de pesquisa: GET /videos?query=..., estrutura de resposta {"hits": [...], ...}
+      - Adicione ?urls=true para retornar diretamente o link direto mp4 na resposta da pesquisa
+      - O URL é JWT assinado (chave de API vinculada, sem tempo de expiração)
+      - A biblioteca Coverr usa principalmente tela horizontal 16:9, e o retrato 9:16 representa uma proporção muito baixa (cerca de 1%)
+        Portanto, esta função não realiza filtragem de proporção de aspecto e é controlada pelo downstream video.py
+        redimensionar + processamento unificado lógico de caixa de correio
+      - O campo de duração existe nos formatos numérico e string, e esta função aceita ambos.
 
-    本函数使用 urls.mp4_download 字段作为下载地址 —— 按 Coverr 官方文档
-    (https://api.coverr.co/docs/videos/#download-a-video) 的说法,
-    GET 这个 URL 本身就被 Coverr 当作一次合法的 download 事件计入统计,
-    无需再调用 PATCH /videos/:id/stats/downloads。
-    """
+    Esta função usa o campo urls.mp4_download como endereço de download - conforme documentação oficial do Coverr
+    (https://api.coverr.co/docs/videos/#download-a-video),
+    O próprio URL GET é tratado como um evento de download legítimo pela Coverr e incluído nas estatísticas.
+    Não há mais necessidade de chamar PATCH /videos/:id/stats/downloads."""
     api_key = get_api_key("coverr_api_keys")
     headers = {"Authorization": f"Bearer {api_key}"}
     params = {
@@ -216,7 +214,7 @@ def search_videos_coverr(
             return video_items
 
         for v in response["hits"]:
-            # duration 在不同响应里可能是 number(11.625) 或 string("10.500000")
+            # a duração pode ser número(11.625) ou string("10.500000") em respostas diferentes
             try:
                 duration = int(float(v.get("duration") or 0))
             except (TypeError, ValueError):
@@ -392,15 +390,13 @@ def _download_videos_by_script_order(
     max_clip_duration: int,
     material_directory: str,
 ) -> List[str]:
-    """
-    按脚本文案顺序下载素材。
+    """Baixe os materiais na ordem de redação do roteiro.
 
-    默认下载逻辑会把所有关键词的候选素材合并成一个大列表；如果第一个
-    关键词返回很多结果，最终下载时可能一直消耗这个关键词的素材，后续
-    脚本主题就排不上时间线。这里按关键词分组后轮询下载：
-    第 1 轮取每个关键词的第 1 个候选，第 2 轮取每个关键词的第 2 个候选。
-    这样在不重写视频合成引擎的前提下，尽量保证素材顺序贴近文案顺序。
-    """
+    A lógica de download padrão mesclará todos os materiais candidatos a palavras-chave em uma lista grande; se o primeiro
+    A palavra-chave retorna muitos resultados, e o material desta palavra-chave pode ser consumido no download final.
+    Os tópicos do script não podem ser agendados na linha do tempo. Aqui agrupamos por palavras-chave e depois pesquisamos downloads:
+    A rodada 1 leva o primeiro candidato para cada palavra-chave e a rodada 2 leva o segundo candidato para cada palavra-chave.
+    Desta forma, sem reescrever o motor de síntese de vídeo, tente garantir que a ordem dos materiais seja o mais próxima possível da ordem do copywriting."""
     logger.info("downloading videos with script-order material matching")
     candidate_groups = []
     valid_video_urls = set()

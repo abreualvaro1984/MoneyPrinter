@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import config
 
-# 忽略 Pydantic 的特定警告
+# Ignore avisos específicos do Pydantic
 warnings.filterwarnings(
     "ignore",
     category=UserWarning,
@@ -58,19 +58,17 @@ class MaterialInfo:
 
 
 class VideoParams(BaseModel):
-    """
-    {
+    """{
       "video_subject": "",
-      "video_aspect": "横屏 16:9（西瓜视频）",
-      "voice_name": "女生-晓晓",
-      "bgm_name": "random",
+      "video_aspect": "Horizontal 16:9 (Vídeo Xigua)",
+      "voice_name": "Garota-Xiaoxiao",
+      "bgm_name": "aleatório",
       "font_name": "STHeitiMedium 黑体-中",
       "text_color": "#FFFFFF",
-      "font_size": 60,
+      "tamanho_da_fonte": 60,
       "stroke_color": "#000000",
-      "stroke_width": 1.5
-    }
-    """
+      "largura_traçado": 1,5
+    }"""
 
     video_subject: str
     video_script: str = ""  # Script used to generate the video
@@ -97,8 +95,8 @@ class VideoParams(BaseModel):
     bgm_type: Optional[str] = "random"
     bgm_file: Optional[str] = ""
     bgm_volume: Optional[float] = 0.2
-    # 视频配乐供应商共用提示词，WebUI 新任务统一写入该字段。保留下面的
-    # Sonilo 专用字段以兼容旧任务记录和现有 CLI 参数。
+    # Palavras de alerta são compartilhadas por fornecedores de trilhas sonoras de vídeo, e novas tarefas de WebUI são escritas uniformemente neste campo. Mantenha o seguinte
+    # Campos específicos do Sonilo para compatibilidade com registros de tarefas antigos e parâmetros CLI existentes.
     video_music_prompt: str = Field(default="", max_length=2000)
     sonilo_bgm_prompt: str = Field(default="", max_length=2000)
 
@@ -153,15 +151,13 @@ class AudioRequest(BaseModel):
 
 
 class VideoScriptParams:
-    """
-    {
-      "video_subject": "春天的花海",
-      "video_language": "",
-      "paragraph_number": 1,
+    """{
+      "video_subject": "Mar de flores na primavera",
+      "video_idioma": "",
+      "parágrafo_número": 1,
       "video_script_prompt": "",
       "custom_system_prompt": ""
-    }
-    """
+    }"""
 
     video_subject: Optional[str] = "春天的花海"
     video_language: Optional[str] = ""
@@ -251,7 +247,7 @@ class TaskResponse(BaseResponse):
 
 
 class TaskStatusData(BaseModel):
-    """任务查询对外保证的稳定字段；历史和扩展字段继续原样透传。"""
+    """A tarefa consulta campos estáveis ​​garantidos externamente; o histórico e os campos estendidos continuam a ser transmitidos de forma transparente como estão."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -270,7 +266,7 @@ class TaskStatusData(BaseModel):
 
 
 class TaskListData(BaseModel):
-    """分页任务列表结构。"""
+    """Estrutura da lista de tarefas paginada."""
 
     tasks: List[TaskStatusData]
     total: int
@@ -279,12 +275,10 @@ class TaskListData(BaseModel):
 
 
 class TaskQueryResponse(BaseResponse):
-    """
-    任务查询会返回生成状态和可选的跨平台发布状态。
+    """As consultas de tarefas retornam o status do build e o status opcional da versão entre plataformas.
 
-    生成失败时包含 `failed_stage` 和 `error`；生成完成后如果启用了自动发布，
-    `cross_post_state` 会依次进入 pending、processing、complete 或 failed。
-    """
+    Contém `failed_stage` e `error` quando a geração falha; se a publicação automática estiver habilitada após a conclusão da geração,
+    `cross_post_state` entrará pendente, em processamento, concluído ou com falha em sequência."""
 
     data: TaskStatusData
 
@@ -320,7 +314,7 @@ class TaskQueryResponse(BaseResponse):
 
 
 class TaskListResponse(BaseResponse):
-    """任务列表使用独立响应模型，避免与单任务查询混用文档结构。"""
+    """As listas de tarefas usam um modelo de resposta independente para evitar misturar estruturas de documentos com consultas de tarefa única."""
 
     data: TaskListData
 

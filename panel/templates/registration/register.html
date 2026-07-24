@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cadastro — MoneyPrinter</title>
+  <meta name="description" content="Crie sua conta no painel MoneyPrinter.">
+  <meta name="theme-color" content="#0e1117">
+  <link rel="stylesheet" href="/static/ui/css/app.css">
+</head>
+<body>
+  <main class="auth-shell">
+    <header class="page-head">
+      <h1>Criar conta</h1>
+      <p>A senha é armazenada com bcrypt (nunca em texto puro).</p>
+    </header>
+    {% if form.errors %}
+    <ul class="messages">
+      {% for field in form %}
+        {% for error in field.errors %}
+        <li class="error">{{ field.label }}: {{ error }}</li>
+        {% endfor %}
+      {% endfor %}
+      {% for error in form.non_field_errors %}
+      <li class="error">{{ error }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <article class="card">
+      <form method="post" class="form-stack">
+        {% csrf_token %}
+        <div>
+          <label for="id_username">{{ form.username.label }}</label>
+          {{ form.username }}
+        </div>
+        <div>
+          <label for="id_email">{{ form.email.label }}</label>
+          {{ form.email }}
+        </div>
+        <div>
+          <label for="id_password1">{{ form.password1.label }}</label>
+          {{ form.password1 }}
+          {% if form.password1.help_text %}<p class="muted">{{ form.password1.help_text }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="id_password2">{{ form.password2.label }}</label>
+          {{ form.password2 }}
+        </div>
+        <button class="btn" type="submit">Cadastrar</button>
+      </form>
+      <p class="muted" style="margin-top:1rem;">
+        Já tem conta? <a href="{% url 'login' %}">Entrar</a>
+      </p>
+    </article>
+  </main>
+</body>
+</html>

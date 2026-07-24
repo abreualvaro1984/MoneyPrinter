@@ -10,6 +10,7 @@ uv sync --extra panel
 cd panel
 uv run python manage.py migrate --noinput
 uv run python manage.py bootstrap_panel
-echo "Admin: http://127.0.0.1:8000/admin/  (admin / admin)"
+echo "UI:    http://127.0.0.1:8010/"
+echo "Admin: http://127.0.0.1:8010/admin/  (admin / admin)"
 echo "Em outro terminal: uv run python manage.py process_jobs --loop"
-exec uv run python manage.py runserver 127.0.0.1:8000
+exec uv run python manage.py runserver 127.0.0.1:8010

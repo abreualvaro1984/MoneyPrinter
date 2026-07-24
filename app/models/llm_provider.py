@@ -6,7 +6,7 @@ DEFAULT_LLM_PROVIDER_ID = "moonshot"
 
 @dataclass(frozen=True, slots=True)
 class LLMProviderField:
-    """描述 Provider 除 API Key、Base URL、模型名之外的额外配置字段。"""
+    """Descrição Campos de configuração adicionais do provedor, além da chave de API, URL base e nome do modelo."""
 
     config_suffix: str
     label_key: str
@@ -17,13 +17,11 @@ class LLMProviderField:
 
 @dataclass(frozen=True, slots=True)
 class LLMProviderSpec:
-    """
-    LLM Provider 的集中声明。
+    """Declaração centralizada do Provedor LLM.
 
-    这里集中保存跨 WebUI、配置加载和服务调用都会使用的稳定元数据，包括默认
-    展示名称和 locale key，但不保存具体翻译文案，也不实现 API 请求。这样
-    Provider 的“是什么”由 Registry 维护，“怎么调用”仍由服务层适配器负责。
-    """
+    Isso armazena centralmente metadados estáveis usados em WebUI, carregamento de configuração e chamadas de serviço, incluindo padrões
+    Exibe o nome e a chave de localidade, mas não salva a cópia de tradução específica e não implementa solicitações de API. Por aqui
+    O “o quê” do Provedor é mantido pelo Registro, e o “como chamar” ainda é de responsabilidade do adaptador da camada de serviço."""
 
     provider_id: str
     default_label: str
@@ -52,14 +50,14 @@ class LLMProviderSpec:
         return f"{self.provider_id}_{suffix}"
 
     def resolve_model_name(self, configured_model: str | None) -> str:
-        """将空值或已废弃的历史默认值统一解析为当前默认模型。"""
+        """Unifique valores nulos ou valores padrão históricos obsoletos no modelo padrão atual."""
         model_name = (configured_model or "").strip()
         if not model_name or model_name in self.deprecated_models:
             return self.default_model
         return model_name
 
     def resolve_base_url(self, configured_base_url: str | None) -> str:
-        """解析 Base URL，并将已经停用的历史地址迁移到当前默认值。"""
+        """Resolva URLs base e migre endereços históricos desativados para os padrões atuais."""
         base_url = (configured_base_url or "").strip()
         deprecated_urls = {url.rstrip("/") for url in self.deprecated_base_urls}
         if not base_url or base_url.rstrip("/") in deprecated_urls:
@@ -67,19 +65,20 @@ class LLMProviderSpec:
         return base_url
 
 
-# 元组顺序就是 WebUI 下拉框顺序。新增普通 OpenAI-compatible Provider 时，
-# 通常只需要在这里增加一项并补充 locale；只有协议不同的 Provider 才需要在
-# app/services/llm.py 中增加对应 adapter 实现。
+# A ordem da tupla é a ordem da caixa suspensa WebUI. Ao adicionar um provedor comum compatível com OpenAI,
+# Normalmente você só precisa adicionar um item aqui e complementar o código do idioma; apenas provedores com protocolos diferentes precisam adicionar
+# Adicione a implementação do adaptador correspondente em app/services/llm.py.
 LLM_PROVIDER_REGISTRY = (
-    # 推荐 Provider
+    # Provedor recomendado
     LLMProviderSpec(
         "moonshot",
         "Kimi / Moonshot AI",
-        api_key_url="https://platform.kimi.com/console/api-keys?aff=MoneyPrinterTurbo",
+        # Plataforma global (EN). .com/.cn = China; keys não são intercambiáveis com .ai.
+        api_key_url="https://platform.kimi.ai/console/api-keys",
         default_model="kimi-k2.7-code",
-        default_base_url="https://api.moonshot.cn/v1",
+        default_base_url="https://api.moonshot.ai/v1",
     ),
-    # 主流模型原厂与云厂商
+    # Fabricantes originais de modelos convencionais e fabricantes de nuvem
     LLMProviderSpec(
         "openai",
         "OpenAI",
@@ -142,6 +141,13 @@ LLM_PROVIDER_REGISTRY = (
         default_base_url="https://api.x.ai/v1",
     ),
     LLMProviderSpec(
+        "zai",
+        "Z.AI",
+        api_key_url="https://z.ai/manage-apikey/apikey-list",
+        default_model="glm-5.2",
+        default_base_url="https://api.z.ai/api/paas/v4",
+    ),
+    LLMProviderSpec(
         "minimax",
         "MiniMax",
         api_key_url="https://platform.minimax.io/",
@@ -157,7 +163,7 @@ LLM_PROVIDER_REGISTRY = (
         default_model="mimo-v2.5-pro",
         default_base_url="https://api.xiaomimimo.com/v1",
     ),
-    # 聚合与统一接入平台
+    # Plataforma de agregação e acesso unificado
     LLMProviderSpec(
         "cloudflare",
         "Cloudflare AI Gateway",
@@ -205,7 +211,7 @@ LLM_PROVIDER_REGISTRY = (
         default_model="gpt-5.5",
         default_base_url="https://direct.evolink.ai/v1",
     ),
-    # 本地部署与通用网关
+    # Implantação local e gateway universal
     LLMProviderSpec(
         "ollama",
         "Ollama",
@@ -227,7 +233,7 @@ LLM_PROVIDER_REGISTRY = (
         show_api_key=False,
         show_base_url=False,
     ),
-    # 其它推理与公共服务
+    # Outros raciocínios e serviços públicos
     LLMProviderSpec(
         "groq",
         "Groq",
@@ -257,12 +263,10 @@ def get_llm_provider(provider_id: str) -> LLMProviderSpec | None:
 
 
 def normalize_provider_override(value: str | None, default_value: str | None) -> str:
-    """
-    只保留与 Registry 默认值不同的用户覆盖值。
+    """Apenas os valores de substituição do usuário que diferem do padrão do Registro são retidos.
 
-    WebUI 需要把默认值展示在输入框中，但不能因此把默认值固化到 config.toml；
-    否则后续升级 Registry 默认模型或地址时，旧配置会继续覆盖新默认值。
-    """
+    WebUI precisa exibir o valor padrão na caixa de entrada, mas não pode solidificar o valor padrão para config.toml;
+    Caso contrário, quando o modelo ou endereço padrão do Registro for atualizado posteriormente, a configuração antiga continuará a substituir o novo valor padrão."""
     normalized_value = (value or "").strip()
     normalized_default = (default_value or "").strip()
     if normalized_value == normalized_default:

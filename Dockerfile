@@ -4,13 +4,13 @@ FROM python:3.14-slim-bookworm
 # Set the working directory in the container
 WORKDIR /MoneyPrinterTurbo
 
-# 设置/MoneyPrinterTurbo目录权限为777
+# Defina as permissões do diretório /MoneyPrinterTurbo como777
 RUN chmod 777 /MoneyPrinterTurbo
 
 ENV PYTHONPATH="/MoneyPrinterTurbo"
 
-# 本地用户默认继续优先使用国内镜像；GitHub Actions 发布 GHCR 镜像时使用 default，
-# 避免海外 runner 访问国内镜像过慢导致镜像发布长时间卡住。
+# Os usuários locais continuarão a usar imagens domésticas por padrão; GitHub Actions usará o padrão ao publicar imagens GHCR.
+# Isso evita que os corredores estrangeiros sejam muito lentos para acessar imagens nacionais, fazendo com que a publicação de imagens fique paralisada por um longo tempo.
 ARG DOCKER_BUILD_MIRROR=china
 ARG PIP_USE_OFFICIAL=0
 
@@ -53,7 +53,7 @@ RUN if [ "$DOCKER_BUILD_MIRROR" = "china" ]; then \
 # Copy only the requirements.txt first to leverage Docker cache
 COPY requirements.txt ./
 
-# 本地默认优先国内 PyPI 镜像；GHCR 发布使用官方 PyPI，避免海外 runner 因跨境镜像访问变慢。
+# A prioridade padrão local é o espelho PyPI doméstico; Os lançamentos do GHCR usam o PyPI oficial para evitar que os corredores estrangeiros sejam retardados pelo acesso ao espelho transfronteiriço.
 RUN if [ "$PIP_USE_OFFICIAL" = "1" ]; then \
         pip install --no-cache-dir --retries 3 --timeout 60 -r requirements.txt; \
     else \
@@ -68,8 +68,8 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 8501
 
-# 容器内部必须监听 0.0.0.0，宿主机仍通过 docker 端口映射限制为 127.0.0.1。
-# browser.serverAddress 只决定浏览器展示的访问地址，不能替代 server.address。
+# O contêiner deve escutar 0.0.0.0 internamente e o host ainda está limitado a 127.0.0.1 por meio do mapeamento de porta do docker.
+# browser.serverAddress Ele determina apenas o endereço de acesso exibido pelo navegador e não pode substituir server.address.
 CMD ["streamlit", "run", "./webui/Main.py", "--server.address=0.0.0.0", "--server.port=8501", "--browser.serverAddress=127.0.0.1", "--server.enableCORS=True", "--browser.gatherUsageStats=False", "--client.toolbarMode=minimal", "--logger.hideWelcomeMessage=True", "--server.showEmailPrompt=False"]
 
 # 1. Build the Docker image using the following command

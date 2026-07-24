@@ -1,0 +1,42 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Contas sociais</h1>
+  <p>Várias contas por plataforma, agrupadas por nicho. Dados no SQLite. Cada formulário tem tutorial.</p>
+</header>
+
+<p class="actions" style="margin-bottom:1rem;">
+  <a class="btn" href="{% url 'ui:accounts_create' %}">Nova conta</a>
+</p>
+
+<section class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Nome</th><th>Plataforma</th><th>Nicho</th><th>Auth</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in accounts %}
+      <tr>
+        <td>{{ a.name }}</td>
+        <td>{{ a.get_platform_display }}</td>
+        <td>{{ a.niche|default:"—" }}</td>
+        <td>{{ a.get_auth_mode_display }}</td>
+        <td>{{ a.get_status_display }}</td>
+        <td>
+          <a href="{% url 'ui:accounts_edit' a.pk %}">Editar</a>
+          ·
+          <form method="post" action="{% url 'ui:accounts_delete' a.pk %}" style="display:inline;" onsubmit="return confirm('Excluir?');">
+            {% csrf_token %}
+            <button type="submit" class="btn secondary btn-compact">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Nenhuma conta ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

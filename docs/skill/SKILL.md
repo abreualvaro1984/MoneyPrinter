@@ -10,6 +10,8 @@ metadata:
 
 # MoneyPrinterTurbo Video Generation
 
+> **Fork MoneyPrinter (painel BR):** além deste skill de gerar MP4, o repositório tem painel Django em `panel/` (Trends, Nichos, Roteiros, `/apis/`). Para trabalho no painel use `.cursor/skills/moneyprinter-panel/SKILL.md`, `roadmap.md` e `agents/`.
+
 The user only needs to provide a video topic or script. Complete installation, configuration reuse, generation, waiting, and final MP4 delivery automatically. Do not stop after giving instructions or commands.
 
 ## Required Behavior

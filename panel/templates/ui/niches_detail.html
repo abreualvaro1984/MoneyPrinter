@@ -1,0 +1,55 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ niche.name }}</h1>
+  <p>{% if niche.parent %}Pai: <a href="{% url 'ui:niches_detail' niche.parent.pk %}">{{ niche.parent }}</a> · {% endif %}{{ niche.briefing|default:"Sem briefing" }}</p>
+</header>
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Keywords</h2>
+  <p class="muted">{{ niche.keywords|linebreaksbr|default:"—" }}</p>
+</article>
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Pesquisar subnichos em alta</h2>
+  <p class="muted">Busca vídeos recentes com mais views neste tema e a IA só fatiar com base nisso.</p>
+  <form
+    method="post"
+    action="{% url 'ui:niches_discover_subs' niche.pk %}"
+    class="form-stack js-ai-wait"
+    data-wait-title="Coletando vídeos do nicho no YouTube…"
+    data-wait-sub="Buscando por views recentes e pedindo à IA para extrair subnichos. Use Parar para cancelar."
+  >
+    {% csrf_token %}
+    <div>
+      <label for="id_video_format">{{ form.video_format.label }}</label>
+      {{ form.video_format }}
+      {% if form.video_format.help_text %}<p class="muted">{{ form.video_format.help_text }}</p>{% endif %}
+    </div>
+    <div>
+      <label for="id_llm_credential">{{ form.llm_credential.label }}</label>
+      {{ form.llm_credential }}
+    </div>
+    <button class="btn" type="submit">Pesquisar subnichos</button>
+  </form>
+  {% if latest_sub %}
+  <p class="muted" style="margin-top:0.75rem;">Última: <a href="{% url 'ui:niches_discovery' latest_sub.pk %}">#{{ latest_sub.id }}</a></p>
+  {% endif %}
+</article>
+
+<section>
+  <h2 style="margin-bottom:0.75rem;">Subnichos salvos</h2>
+  <div class="grid">
+    {% for s in subniches %}
+    <article class="card">
+      <h3><a href="{% url 'ui:niches_detail' s.pk %}">{{ s.name }}</a></h3>
+      <p class="muted">{{ s.briefing|truncatechars:100 }}</p>
+    </article>
+    {% empty %}
+    <article class="card"><p>Nenhum subnicho ainda.</p></article>
+    {% endfor %}
+  </div>
+</section>
+
+<p class="actions"><a class="btn secondary" href="{% url 'ui:nichos' %}">Todos os nichos</a></p>
+{% endblock %}

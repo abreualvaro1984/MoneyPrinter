@@ -1,0 +1,257 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block after_related_objects %}
+{{ block.super }}
+{% if show_usage_history %}
+<div class="module" id="llm-usage-history" style="margin-top:1.5rem;">
+  <h2>Histórico de uso desta IA</h2>
+  <p style="margin:0.5rem 0 1rem;opacity:0.85;">
+    Contagem das pesquisas/planos já ligados a esta credencial
+    (não inclui tokens nem custo da API).
+  </p>
+  <ul style="display:flex;gap:1.5rem;flex-wrap:wrap;list-style:none;padding:0;margin:0 0 1.25rem;">
+    <li><strong>{{ usage_summary.trends }}</strong> Trends</li>
+    <li><strong>{{ usage_summary.niches }}</strong> Nichos</li>
+    <li><strong>{{ usage_summary.plans }}</strong> Planos</li>
+  </ul>
+
+  <h3>Trends (últimas {{ usage_trends|length }})</h3>
+  {% if usage_trends %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Nicho</th><th>Quando</th><th>Resumo</th></tr>
+    </thead>
+    <tbody>
+      {% for r in usage_trends %}
+      <tr>
+        <td><a href="{% url 'admin:ui_trendrun_change' r.pk %}">#{{ r.pk }}</a></td>
+        <td>{{ r.niche }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>{{ r.summary_pt|truncatechars:80|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhuma pesquisa de trends ainda.</p>
+  {% endif %}
+
+  <h3>Descobertas de nichos (últimas {{ usage_niche_discoveries|length }})</h3>
+  {% if usage_niche_discoveries %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Tipo</th><th>Formato</th><th>Quando</th></tr>
+    </thead>
+    <tbody>
+      {% for r in usage_niche_discoveries %}
+      <tr>
+        <td><a href="{% url 'admin:ui_nichediscoveryrun_change' r.pk %}">#{{ r.pk }}</a></td>
+        <td>{{ r.get_kind_display }}{% if r.parent_niche %} · {{ r.parent_niche }}{% endif %}</td>
+        <td>{{ r.video_format|default:"—" }}</td>
+        <td>{{ r.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhuma descoberta de nichos ainda.</p>
+  {% endif %}
+
+  <h3>Planos de vídeo (últimas {{ usage_video_plans|length }})</h3>
+  {% if usage_video_plans %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Título / tema</th><th>Nicho</th><th>Status</th><th>Quando</th></tr>
+    </thead>
+    <tbody>
+      {% for p in usage_video_plans %}
+      <tr>
+        <td><a href="{% url 'admin:ui_videoplan_change' p.pk %}">#{{ p.pk }}</a></td>
+        <td>{{ p.title|default:p.topic|default:"—" }}</td>
+        <td>{{ p.niche }}</td>
+        <td>{{ p.get_status_display }}</td>
+        <td>{{ p.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhum plano de vídeo ainda.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script type="application/json" id="llm-models-catalog">{{ adminform.form.models_catalog_json|safe }}</script>
+<script>
+(function () {
+  function csrfToken() {
+    var input = document.querySelector("[name=csrfmiddlewaretoken]");
+    return input ? input.value : "";
+  }
+
+  function fillModels(keepValue) {
+    const select = document.getElementById("id_provider");
+    const modelSelect = document.getElementById("id_model_name");
+    if (!select || !modelSelect) return;
+    let catalog = {};
+    try {
+      const el = document.getElementById("llm-models-catalog");
+      catalog = el ? JSON.parse(el.textContent || "{}") : {};
+    } catch (e) {
+      catalog = {};
+    }
+    const models = catalog[select.value] || [];
+    const previous = keepValue || modelSelect.value || "";
+    modelSelect.innerHTML = "";
+    let found = false;
+    models.forEach(function (m) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === previous) {
+        opt.selected = true;
+        found = true;
+      }
+      modelSelect.appendChild(opt);
+    });
+    if (previous && !found) {
+      const opt = document.createElement("option");
+      opt.value = previous;
+      opt.textContent = previous;
+      opt.selected = true;
+      modelSelect.insertBefore(opt, modelSelect.firstChild);
+    } else if (!found && models.length) {
+      modelSelect.value = models[0];
+    }
+  }
+
+  function ensureLink() {
+    const select = document.getElementById("id_provider");
+    if (!select) return;
+    let wrap = document.getElementById("provider-key-link-wrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "provider-key-link-wrap";
+      wrap.style.margin = "8px 0 16px";
+      const a = document.createElement("a");
+      a.id = "provider-key-link";
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.style.fontWeight = "600";
+      a.textContent = "Abrir página da API key desta IA →";
+      wrap.appendChild(a);
+      const tip = document.createElement("div");
+      tip.id = "provider-howto";
+      tip.style.marginTop = "6px";
+      tip.style.opacity = "0.85";
+      tip.style.fontSize = "13px";
+      wrap.appendChild(tip);
+      select.parentNode.appendChild(wrap);
+    }
+    const link = document.getElementById("provider-key-link");
+    const howto = document.getElementById("provider-howto");
+    function syncMeta() {
+      const opt = select.options[select.selectedIndex];
+      const url = opt && opt.getAttribute("data-key-url");
+      const tip = opt && opt.getAttribute("data-howto");
+      if (url) {
+        link.href = url;
+        link.style.display = "";
+      } else {
+        link.style.display = "none";
+      }
+      if (howto) howto.textContent = tip || "";
+    }
+    select.addEventListener("change", function () {
+      syncMeta();
+      fillModels("");
+    });
+    syncMeta();
+  }
+
+  function ensureTest() {
+    const apiKey = document.getElementById("id_api_key");
+    if (!apiKey || document.getElementById("llm-test-btn")) return;
+
+    const wrap = document.createElement("div");
+    wrap.id = "llm-test-wrap";
+    wrap.style.margin = "12px 0 8px";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "button default";
+    btn.id = "llm-test-btn";
+    btn.textContent = "Testar API";
+    btn.style.fontWeight = "700";
+
+    const busy = document.createElement("span");
+    busy.id = "api-test-busy";
+    busy.style.display = "none";
+    busy.style.marginLeft = "10px";
+    busy.textContent = "testando…";
+
+    const result = document.createElement("div");
+    result.id = "api-test-result";
+    result.style.marginTop = "8px";
+    result.style.maxWidth = "640px";
+
+    wrap.appendChild(btn);
+    wrap.appendChild(busy);
+    wrap.appendChild(result);
+    apiKey.parentNode.appendChild(wrap);
+
+    const objectId = "{{ original.pk|default:'' }}";
+    btn.addEventListener("click", async function () {
+      result.innerHTML = "";
+      busy.style.display = "inline";
+      btn.disabled = true;
+      try {
+        let url;
+        let body;
+        if (objectId) {
+          url = "/apis/" + objectId + "/testar/";
+          body = new URLSearchParams();
+        } else {
+          url = "/apis/testar/";
+          const provider = document.getElementById("id_provider");
+          body = new URLSearchParams({
+            provider: provider ? provider.value : "",
+            api_key: apiKey.value || "",
+            model_name: (document.getElementById("id_model_name") || {}).value || "",
+          });
+        }
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrfToken(),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
+          credentials: "same-origin",
+        });
+        result.innerHTML = await resp.text();
+      } catch (err) {
+        result.innerHTML = '<p style="color:#ba2121;">Erro ao testar: ' + err + "</p>";
+      } finally {
+        busy.style.display = "none";
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function boot() {
+    ensureLink();
+    ensureTest();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+{% endblock %}

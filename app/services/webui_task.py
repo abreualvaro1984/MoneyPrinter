@@ -12,9 +12,9 @@ from app.services import task as tm
 from app.utils.logging_utils import format_log_record
 
 
-# WebUI 的配置保存在进程级全局字典中。原来的同步实现会在完整生成期间持有
-# runtime_config_lock，因此不同浏览器会话实际上也是串行执行。这里把并发数固定
-# 为 1，既延续原有配置一致性，也避免多个线程只是在配置锁外无意义地等待。
+# A configuração do WebUI é armazenada em um dicionário global em nível de processo. A implementação de sincronização original será mantida durante a compilação completa
+# runtime_config_lock, para que diferentes sessões do navegador sejam executadas em série. Aqui o número de simultaneidade é fixo
+# É 1, que não apenas mantém a consistência da configuração original, mas também evita que vários threads esperem sem sentido fora do bloqueio de configuração.
 _task_manager = InMemoryTaskManager(
     max_concurrent_tasks=1,
     max_queued_tasks=max(1, int(config.app.get("max_queued_tasks", 100))),
@@ -23,18 +23,18 @@ _task_logs: dict[str, deque[str]] = {}
 _task_logs_lock = threading.RLock()
 _MAX_LOG_TASKS = 20
 _MAX_LOG_RECORDS_PER_TASK = 1000
-# Streamlit 无法由后台线程直接推送组件更新，只能通过 Fragment 轮询。0.5 秒
-# 足以让 WebUI 日志接近终端实时输出，又不会像高频刷新那样持续占用浏览器资源。
+# O Streamlit não pode enviar atualizações de componentes diretamente por threads em segundo plano, mas só pode ser pesquisado por meio do Fragment. 0,5 segundos
+# É o suficiente para fazer o log da WebUI próximo à saída em tempo real do terminal, mas não continuará a ocupar recursos do navegador, como atualização de alta frequência.
 TASK_LOG_REFRESH_INTERVAL_SECONDS = 0.5
 
 
 def _append_task_log(task_id: str, message: str) -> None:
-    """按任务保存有限数量的日志，供 Streamlit Fragment 安全轮询。"""
+    """Salve um número limitado de logs por tarefa para pesquisa segura por Streamlit Fragments."""
     with _task_logs_lock:
         records = _task_logs.get(task_id)
         if records is None:
-            # 只保留最近任务的日志，避免 WebUI 服务长时间运行后持续占用内存。
-            # dict 保持插入顺序；任务日志仅用于界面诊断，淘汰最早记录不影响任务。
+            # Mantenha apenas os logs das tarefas mais recentes para evitar que o serviço WebUI continue ocupando memória após um longo período de execução.
+            # dict mantém o pedido de inserção; o log de tarefas é usado apenas para diagnóstico de interface e a eliminação do registro mais antigo não afeta a tarefa.
             if len(_task_logs) >= _MAX_LOG_TASKS:
                 oldest_task_id = next(iter(_task_logs))
                 _task_logs.pop(oldest_task_id, None)
@@ -44,7 +44,7 @@ def _append_task_log(task_id: str, message: str) -> None:
 
 
 def get_task_logs(task_id: str) -> list[str]:
-    """返回日志快照，避免页面渲染期间持有后台线程使用的锁。"""
+    """Retorne um instantâneo de log para evitar a retenção de bloqueios usados ​​por threads em segundo plano durante a renderização da página."""
     with _task_logs_lock:
         return list(_task_logs.get(task_id, ()))
 
@@ -55,13 +55,11 @@ def _run_generation(
     capture_logs: bool,
     voice_preview: dict | None = None,
 ) -> dict:
-    """
-    在后台线程中执行现有视频流水线。
+    """Execute o pipeline de vídeo existente em um thread em segundo plano.
 
-    Loguru 的 sink 是进程级资源，因此必须按当前工作线程过滤。否则同时运行的
-    API 任务或其它页面日志会混入当前任务。页面只读取普通列表快照，不会从后台
-    线程访问 Streamlit session_state，从根源上避免刷新时的 delta 路径错乱。
-    """
+    O coletor do Loguru é um recurso em nível de processo, portanto deve ser filtrado pelo thread de trabalho atual. Caso contrário, execute simultaneamente
+    As tarefas da API ou outros logs de página são misturados com a tarefa atual. A página lê apenas instantâneos de lista comuns e não lê em segundo plano
+    O thread acessa o Streamlit session_state para evitar a causa raiz da confusão do caminho delta durante a atualização."""
     log_handler_id = None
     worker_thread_id = threading.get_ident()
     try:
@@ -74,8 +72,8 @@ def _run_generation(
                 filter=lambda record: record["thread"].id == worker_thread_id,
             )
 
-        # 完整任务仍使用原来的配置锁，防止另一个 WebUI 会话在生成中途修改
-        # Provider、密钥等进程级配置，造成同一条视频前后使用不同设置。
+        # A tarefa completa ainda usa o bloqueio de configuração original, evitando que outra sessão da WebUI a modifique no meio da construção
+        # Configurações em nível de processo, como provedores e chaves, fazem com que configurações diferentes sejam usadas antes e depois do mesmo vídeo.
         with config.runtime_config_lock():
             return tm.start(
                 task_id=task_id,
@@ -83,9 +81,9 @@ def _run_generation(
                 voice_preview=voice_preview,
             )
     except Exception as exc:
-        # tm.start 已负责把流水线异常转换成失败状态；这里额外保护日志 sink、
-        # 配置锁等 WebUI 包装层。任何后台线程异常都必须留下终态，不能让任务
-        # 管理器在工作线程退出后仍永久显示“生成中”。
+        # tm.start já é responsável por converter exceções de pipeline em status de falha; aqui coletor de log de proteção adicional,
+        # Camadas wrapper WebUI, como bloqueios de configuração. Qualquer exceção de thread em segundo plano deve deixar o estado final e não pode deixar a tarefa
+        # O gerenciador continua mostrando "Construindo" permanentemente após a saída do thread de trabalho.
         error = f"{type(exc).__name__}: {exc}"
         failure = {
             "task_id": task_id,
@@ -122,15 +120,13 @@ def submit_generation(
     capture_logs: bool = True,
     voice_preview: dict | None = None,
 ) -> None:
-    """
-    登记并提交 WebUI 视频生成任务，调用后立即返回。
+    """Registre-se e envie a tarefa de geração de vídeo WebUI e retorne imediatamente após a chamada.
 
-    任务状态必须在线程启动前写入。这样页面本次脚本执行结束时即可查询到任务，
-    浏览器刷新或 WebSocket 重连也不依赖旧页面内存中的占位符。
-    """
+    O status da tarefa deve ser gravado antes do thread ser iniciado. Desta forma, a tarefa pode ser consultada quando a execução atual do script da página terminar.
+    As atualizações do navegador ou as reconexões do WebSocket também não dependem de espaços reservados para páginas antigas na memória."""
     task_params = params.model_copy(deep=True)
-    # 预览载荷只包含不可变音频路径、参数快照和只读字幕时间轴。复制外层字典，
-    # 避免页面后续 rerun 替换缓存字段时影响已经提交到后台队列的任务。
+    # A carga de visualização contém apenas caminhos de áudio imutáveis, instantâneos de parâmetros e uma linha do tempo de legendas somente leitura. Copie o dicionário externo,
+    # Isso evita que novas execuções subsequentes da página afetem tarefas já enviadas para a fila em segundo plano ao substituir campos em cache.
     voice_preview_snapshot = dict(voice_preview) if voice_preview else None
     sm.state.update_task(
         task_id,
@@ -147,8 +143,8 @@ def submit_generation(
             voice_preview=voice_preview_snapshot,
         )
     except Exception as exc:
-        # 调度失败与流水线失败一样必须成为可查询状态，避免任务管理器永久显示
-        # “生成中”。保留异常类型便于从 Docker 或本机日志快速定位队列问题。
+        # Falhas de agendamento, como falhas de pipeline, devem se tornar consultáveis ​​para evitar exibição permanente no gerenciador de tarefas.
+        # "Gerando". Preservar os tipos de exceção facilita a localização rápida de problemas de fila do Docker ou de logs nativos.
         error = f"{type(exc).__name__}: {exc}"
         sm.state.update_task(
             task_id,

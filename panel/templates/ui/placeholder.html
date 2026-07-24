@@ -1,0 +1,12 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ area_name }}</h1>
+  <p>{{ area_blurb }}</p>
+</header>
+<article class="card">
+  <p>Esta área está no roadmap e ainda não foi implementada na UI amigável.</p>
+  <p class="muted">Enquanto isso, use o <a href="/admin/">Django Admin</a> para operações legadas.</p>
+  <p class="actions"><a class="btn secondary" href="{% url 'ui:home' %}">Voltar ao início</a></p>
+</article>
+{% endblock %}

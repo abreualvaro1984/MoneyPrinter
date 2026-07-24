@@ -1,0 +1,199 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ draft.title|default:draft.topic }}</h1>
+  <p>
+    Nicho: <strong>{{ draft.niche }}</strong> · v{{ draft.version }}
+    · alvo ~{{ draft.target_duration_sec|default:60 }}s
+    {% if draft.llm_credential %}
+      · IA: {{ draft.llm_credential.name }} ({{ draft.llm_credential.provider }})
+    {% endif %}
+    ·
+    {% if draft.ai_status == "pass" %}<span class="badge ok">{{ draft.get_ai_status_display }}</span>
+    {% elif draft.ai_status == "regen" %}<span class="badge danger">{{ draft.get_ai_status_display }}</span>
+    {% elif draft.ai_status == "review" %}<span class="badge warn">{{ draft.get_ai_status_display }}</span>
+    {% else %}<span class="badge">{{ draft.get_ai_status_display }}</span>{% endif %}
+    {% if draft.ai_score != None %}· score {{ draft.ai_score|floatformat:1 }}{% endif %}
+  </p>
+  <p class="muted" style="margin-top:0.35rem;">
+    <strong>Score</strong> = probabilidade de o texto parecer gerado por IA (0–100).
+    Quanto maior, pior para “passar por humano”. Faixas: &lt;45 ok · 45–69 revisar · ≥70 use Humanizar ou Regenerar.
+    Detector: Gemini (Google AI Studio) / fallback.
+  </p>
+  {% if draft.notes %}
+  <p class="muted" style="margin-top:0.35rem;">{{ draft.notes }}</p>
+  {% endif %}
+</header>
+
+{% with research=draft.ai_raw.research %}
+{% if research.videos or research.articles %}
+<article class="card" style="margin-bottom:1rem;">
+  <h2 style="margin-top:0;">Fontes da pesquisa (≤ {{ research.cutoff_days|default:90 }} dias)</h2>
+  {% if research.videos %}
+  <h3>Vídeos</h3>
+  <ul>
+    {% for v in research.videos|slice:":6" %}
+    <li>
+      {% if v.url %}<a href="{{ v.url }}" target="_blank" rel="noopener">{{ v.title|default:v.url }}</a>{% else %}{{ v.title }}{% endif %}
+      {% if v.view_count %} · {{ v.view_count }} views{% endif %}
+      {% if v.published_at %} · {{ v.published_at|truncatechars:10 }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if research.articles %}
+  <h3>Artigos / notícias</h3>
+  <ul>
+    {% for a in research.articles|slice:":8" %}
+    <li>
+      {% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title|default:a.url }}</a>{% else %}{{ a.title }}{% endif %}
+      {% if a.source %} · {{ a.source }}{% endif %}
+      {% if a.lang %} · {{ a.lang }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if research.claims_to_verify %}
+  <h3>Checar antes de gravar</h3>
+  <ul>
+    {% for c in research.claims_to_verify %}
+    <li>{{ c }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</article>
+{% endif %}
+{% endwith %}
+
+<article class="card" style="margin-bottom:1rem;">
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+    <div>
+      <label for="id_title">{{ form.title.label }}</label>
+      {{ form.title }}
+    </div>
+    <div>
+      <label for="id_body">{{ form.body.label }}</label>
+      {{ form.body }}
+    </div>
+    <div>
+      <label for="id_hooks">{{ form.hooks.label }}</label>
+      {{ form.hooks }}
+    </div>
+    <div>
+      <label for="id_cta">{{ form.cta.label }}</label>
+      {{ form.cta }}
+    </div>
+    <div>
+      <label for="id_hashtags">{{ form.hashtags.label }}</label>
+      {{ form.hashtags }}
+    </div>
+    <div>
+      <label for="id_target_duration_sec">{{ form.target_duration_sec.label }}</label>
+      {{ form.target_duration_sec }}
+      {% if form.target_duration_sec.help_text %}
+      <p class="muted">{{ form.target_duration_sec.help_text }}</p>
+      {% endif %}
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Salvar e reavaliar</button>
+    </div>
+  </form>
+</article>
+
+<article class="card" style="margin-bottom:1rem;">
+  <h2 style="margin-top:0;">Gerar outra duração</h2>
+  <p class="muted">
+    Cria um <strong>novo</strong> rascunho (curta, Short, longa…) a partir deste texto —
+    mesmos fatos, só muda o tamanho. Não refaz a pesquisa inteira.
+  </p>
+  <form
+    method="post"
+    action="{% url 'ui:scripts_variant' draft.pk %}"
+    class="form-stack js-ai-wait"
+    data-wait-title="Gerando variante…"
+    data-wait-sub="Ajustando o roteiro para a duração escolhida."
+  >
+    {% csrf_token %}
+    <div>
+      <label for="id_variant_llm">IA</label>
+      <select name="llm_credential" id="id_variant_llm">
+        <option value="">Padrão (credencial ★ / config.toml)</option>
+        {% for c in llm_credentials %}
+        <option value="{{ c.pk }}" {% if draft.llm_credential_id == c.pk %}selected{% endif %}>
+          {{ c.name }} ({{ c.provider }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="actions" style="flex-wrap:wrap;gap:0.5rem;">
+      {% for sec, label in duration_choices %}
+        {% if sec != draft.target_duration_sec %}
+        <button class="btn secondary" type="submit" name="target_duration_sec" value="{{ sec }}">
+          {{ label }}
+        </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </form>
+</article>
+
+<div class="actions" style="flex-wrap:wrap;align-items:flex-end;gap:0.75rem;">
+  <form method="post" action="{% url 'ui:scripts_rescore' draft.pk %}">{% csrf_token %}
+    <button class="btn secondary" type="submit">Recalcular score</button>
+  </form>
+
+  <form
+    method="post"
+    action="{% url 'ui:scripts_humanize' draft.pk %}"
+    class="js-ai-wait form-stack"
+    style="margin:0;"
+    data-wait-title="Humanizando texto…"
+    data-wait-sub="Reescrevendo só o estilo para passar no anti-IA, sem mudar o conteúdo."
+  >{% csrf_token %}
+    <div>
+      <label for="id_humanize_llm">IA para humanizar</label>
+      <select name="llm_credential" id="id_humanize_llm">
+        <option value="">Padrão (credencial ★ / config.toml)</option>
+        {% for c in llm_credentials %}
+        <option value="{{ c.pk }}" {% if draft.llm_credential_id == c.pk %}selected{% endif %}>
+          {{ c.name }} ({{ c.provider }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn" type="submit">Humanizar p/ burlar anti-IA</button>
+  </form>
+
+  <form
+    method="post"
+    action="{% url 'ui:scripts_regenerate' draft.pk %}"
+    class="js-ai-wait form-stack"
+    style="margin:0;"
+    data-wait-title="Regenerando roteiro…"
+    data-wait-sub="Nova pesquisa + texto no tempo escolhido. Use Parar para cancelar."
+  >{% csrf_token %}
+    <div>
+      <label for="id_regen_llm">IA ao regenerar</label>
+      <select name="llm_credential" id="id_regen_llm">
+        <option value="">Padrão (credencial ★ / config.toml)</option>
+        {% for c in llm_credentials %}
+        <option value="{{ c.pk }}" {% if draft.llm_credential_id == c.pk %}selected{% endif %}>
+          {{ c.name }} ({{ c.provider }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="id_regen_duration">Duração alvo</label>
+      <select name="target_duration_sec" id="id_regen_duration">
+        {% for sec, label in duration_choices %}
+        <option value="{{ sec }}" {% if draft.target_duration_sec == sec %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn warn" type="submit">Regenerar (anti-IA + pesquisa)</button>
+  </form>
+  <a class="btn secondary" href="{% url 'ui:scripts_index' %}">Lista</a>
+</div>
+{% endblock %}

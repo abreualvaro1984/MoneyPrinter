@@ -1,0 +1,286 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ page_title|default:"MoneyPrinter" }}</title>
+  <meta name="description" content="{{ meta_description|default:'Painel MoneyPrinter — fábrica multi-nicho de vídeos.' }}">
+  <meta name="theme-color" content="#0e1117">
+  <link rel="stylesheet" href="{% static 'ui/css/app.css' %}">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script>
+    document.addEventListener("htmx:configRequest", function (event) {
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) event.detail.headers["X-CSRFToken"] = meta.content;
+    });
+  </script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <button
+        type="button"
+        class="nav-toggle"
+        id="nav-toggle"
+        aria-controls="sidebar"
+        aria-expanded="false"
+        aria-label="Abrir menu"
+      >
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+      </button>
+      <p class="brand topbar-brand">Money<span>Printer</span></p>
+    </header>
+
+    <div class="nav-backdrop" id="nav-backdrop" hidden></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <p class="brand">Money<span>Printer</span></p>
+        <p class="brand-sub">Fábrica multi-nicho</p>
+        <button type="button" class="nav-close" id="nav-close" aria-label="Fechar menu">✕</button>
+      </div>
+      <nav class="nav" aria-label="Principal">
+        <a href="{% url 'ui:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Início</a>
+        <a href="{% url 'ui:nichos' %}" class="{% if 'niches' in request.resolver_match.url_name or request.resolver_match.url_name == 'nichos' %}active{% endif %}">Nichos</a>
+        <a href="{% url 'ui:trends_index' %}" class="{% if 'trends' in request.resolver_match.url_name %}active{% endif %}">Trends</a>
+        <a href="{% url 'ui:scripts_index' %}" class="{% if 'scripts' in request.resolver_match.url_name %}active{% endif %}">Roteiros</a>
+        <a href="{% url 'ui:plans_index' %}" class="{% if 'plans' in request.resolver_match.url_name %}active{% endif %}">Plano</a>
+        <a href="{% url 'ui:apis_index' %}" class="{% if 'apis' in request.resolver_match.url_name %}active{% endif %}">APIs</a>
+        <a href="{% url 'ui:contas' %}" class="{% if 'account' in request.resolver_match.url_name or request.resolver_match.url_name == 'contas' %}active{% endif %}">Contas</a>
+        <a href="{% url 'ui:cortes' %}" class="{% if request.resolver_match.url_name == 'cortes' %}active{% endif %}">Cortes <span class="soon">em breve</span></a>
+        <a href="{% url 'ui:create' %}" class="{% if request.resolver_match.url_name == 'create' %}active{% endif %}">Create <span class="soon">em breve</span></a>
+        <a href="{% url 'ui:publicar' %}" class="{% if request.resolver_match.url_name == 'publicar' %}active{% endif %}">Publicar <span class="soon">em breve</span></a>
+        <a href="/admin/" target="_blank" rel="noopener">Admin</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <div id="ai-wait" class="ai-wait" hidden aria-live="assertive" aria-busy="false">
+    <div class="ai-wait-card" role="status">
+      <div class="ai-wait-spinner" aria-hidden="true"></div>
+      <p class="ai-wait-title" id="ai-wait-title">A IA está pensando…</p>
+      <p class="ai-wait-sub" id="ai-wait-sub">Isso pode levar alguns segundos.</p>
+      <button type="button" class="btn secondary ai-wait-cancel" id="ai-wait-cancel">
+        Parar / cancelar
+      </button>
+      <p class="ai-wait-hint muted" id="ai-wait-hint" hidden>Cancelado. Você pode tentar de novo.</p>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var body = document.body;
+    var toggle = document.getElementById("nav-toggle");
+    var closeBtn = document.getElementById("nav-close");
+    var backdrop = document.getElementById("nav-backdrop");
+
+    function setOpen(open) {
+      if (!toggle) return;
+      body.classList.toggle("nav-open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu");
+      if (backdrop) backdrop.hidden = !open;
+    }
+    function close() { setOpen(false); }
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        setOpen(!body.classList.contains("nav-open"));
+      });
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      if (backdrop) backdrop.addEventListener("click", close);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (body.classList.contains("ai-waiting")) {
+            cancelAiWait();
+            return;
+          }
+          close();
+        }
+      });
+      document.querySelectorAll(".nav a").forEach(function (link) {
+        link.addEventListener("click", close);
+      });
+      window.matchMedia("(min-width: 900px)").addEventListener("change", function (e) {
+        if (e.matches) close();
+      });
+    }
+
+    var wait = document.getElementById("ai-wait");
+    var waitTitle = document.getElementById("ai-wait-title");
+    var waitSub = document.getElementById("ai-wait-sub");
+    var waitHint = document.getElementById("ai-wait-hint");
+    var waitCancel = document.getElementById("ai-wait-cancel");
+    var activeController = null;
+    var activeForm = null;
+
+    function showAiWait(title, sub) {
+      if (!wait) return;
+      if (waitTitle && title) waitTitle.textContent = title;
+      if (waitSub && sub) waitSub.textContent = sub;
+      if (waitHint) waitHint.hidden = true;
+      if (waitCancel) {
+        waitCancel.disabled = false;
+        waitCancel.hidden = false;
+      }
+      wait.hidden = false;
+      wait.setAttribute("aria-busy", "true");
+      body.classList.add("ai-waiting");
+    }
+
+    function hideAiWait() {
+      if (!wait) return;
+      wait.hidden = true;
+      wait.setAttribute("aria-busy", "false");
+      body.classList.remove("ai-waiting");
+    }
+
+    function unlockForm(form) {
+      if (!form) return;
+      form.querySelectorAll('[type="submit"], button:not([type="button"])').forEach(function (btn) {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+      });
+    }
+
+    function cancelAiWait() {
+      if (activeController) {
+        try { activeController.abort(); } catch (e) {}
+        activeController = null;
+      }
+      // HTMX em andamento (ex.: Testar API)
+      if (window.htmx && typeof htmx.trigger === "function") {
+        document.body.dispatchEvent(new Event("htmx:abort"));
+      }
+      unlockForm(activeForm);
+      activeForm = null;
+      hideAiWait();
+      if (waitHint) {
+        // Flash breve no overlay? Já escondemos — mostra mensagem na página se houver .messages
+        var main = document.querySelector("main.main");
+        if (main) {
+          var note = document.getElementById("ai-wait-cancel-note");
+          if (!note) {
+            note = document.createElement("ul");
+            note.id = "ai-wait-cancel-note";
+            note.className = "messages";
+            main.insertBefore(note, main.firstChild);
+          }
+          note.innerHTML = '<li class="info">Solicitação cancelada. Pode pesquisar de novo.</li>';
+        }
+      }
+    }
+
+    if (waitCancel) {
+      waitCancel.addEventListener("click", function () {
+        cancelAiWait();
+      });
+    }
+
+    document.querySelectorAll("form.js-ai-wait").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (activeController) {
+          try { activeController.abort(); } catch (e) {}
+        }
+
+        var btn = form.querySelector('[type="submit"]');
+        if (btn) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+        }
+
+        showAiWait(
+          form.getAttribute("data-wait-title") || "A IA está pensando…",
+          form.getAttribute("data-wait-sub") || "Isso pode levar alguns segundos. Use Parar para cancelar."
+        );
+
+        activeForm = form;
+        activeController = new AbortController();
+        var formData = new FormData(form);
+        var fallbackUrl = form.action || window.location.href;
+
+        fetch(fallbackUrl, {
+          method: (form.method || "POST").toUpperCase(),
+          body: formData,
+          credentials: "same-origin",
+          // follow: evita opaqueredirect (status 0) que gerava tela branca no document.write
+          redirect: "follow",
+          signal: activeController.signal,
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+          .then(function (response) {
+            activeController = null;
+            if (!response.ok) {
+              unlockForm(form);
+              hideAiWait();
+              throw new Error("HTTP " + response.status);
+            }
+            // Navega para a URL final (ex.: /nichos/descoberta/N/).
+            // Evita document.write — que quebrava em redirect opaco / HTML vazio.
+            var nextUrl = response.url || fallbackUrl;
+            window.location.assign(nextUrl);
+          })
+          .catch(function (err) {
+            activeController = null;
+            if (err && err.name === "AbortError") {
+              return;
+            }
+            unlockForm(form);
+            hideAiWait();
+            var main = document.querySelector("main.main");
+            if (main) {
+              var note = document.getElementById("ai-wait-cancel-note");
+              if (!note) {
+                note = document.createElement("ul");
+                note.id = "ai-wait-cancel-note";
+                note.className = "messages";
+                main.insertBefore(note, main.firstChild);
+              }
+              note.innerHTML = '<li class="error">Falha na solicitação. Tente de novo.</li>';
+            }
+          });
+      });
+    });
+
+    // Overlay “IA pensando” também em HTMX longo (se marcado)
+    document.body.addEventListener("htmx:beforeRequest", function (event) {
+      var elt = event.detail && event.detail.elt;
+      if (!elt || !elt.classList || !elt.classList.contains("js-ai-wait-htmx")) return;
+      showAiWait(
+        elt.getAttribute("data-wait-title") || "A IA está pensando…",
+        elt.getAttribute("data-wait-sub") || "Use Parar para cancelar."
+      );
+      activeForm = elt.closest("form") || null;
+    });
+    document.body.addEventListener("htmx:afterRequest", function (event) {
+      var elt = event.detail && event.detail.elt;
+      if (!elt || !elt.classList || !elt.classList.contains("js-ai-wait-htmx")) return;
+      hideAiWait();
+    });
+
+    window.addEventListener("pageshow", function () {
+      hideAiWait();
+      unlockForm(activeForm);
+      activeForm = null;
+      activeController = null;
+    });
+  })();
+  </script>
+</body>
+</html>

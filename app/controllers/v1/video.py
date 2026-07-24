@@ -35,7 +35,7 @@ from app.services import state as sm
 from app.services import task as tm
 from app.utils import file_security, utils
 
-# 认证依赖项
+# Dependências de autenticação
 # router = new_router(dependencies=[Depends(base.verify_token)])
 router = new_router()
 
@@ -48,7 +48,7 @@ _max_concurrent_tasks = config.app.get("max_concurrent_tasks", 5)
 _max_queued_tasks = config.app.get("max_queued_tasks", 100)
 
 redis_url = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/{_redis_db}"
-# 根据配置选择合适的任务管理器
+# Escolha o gerenciador de tarefas apropriado com base na sua configuração
 if _enable_redis:
     task_manager = RedisTaskManager(
         max_concurrent_tasks=_max_concurrent_tasks,
@@ -63,8 +63,8 @@ else:
 
 
 def _sanitize_upload_filename(filename: str, request_id: str) -> str:
-    # 浏览器或客户端有时会附带目录信息，甚至可能夹带 ../ 这类穿越片段。
-    # 这里只保留纯文件名，避免上传接口把文件写到目标目录之外。
+    # Às vezes, navegadores ou clientes vêm com informações de diretório e podem até incluir fragmentos de passagem como ../.
+    # Somente nomes de arquivos puros são retidos aqui para evitar que a interface de upload grave arquivos fora do diretório de destino.
     normalized_name = (filename or "").replace("\\", "/").split("/")[-1].strip()
     if not normalized_name or normalized_name in {".", ".."}:
         raise HttpException(
@@ -91,7 +91,7 @@ def _resolve_path_within_directory(base_dir: str, unsafe_path: str, request_id: 
 
 
 def _public_task_data(task: dict) -> dict:
-    """复制任务状态并移除仅用于服务端进程协调的内部字段。"""
+    """Copia o estado da tarefa e remove campos internos usados ​​apenas para coordenação de processos no lado do servidor."""
     public_task = dict(task)
     public_task.pop("cross_post_owner", None)
     return public_task
@@ -107,8 +107,8 @@ def _task_file_to_uri(file: str, endpoint: str, task_dir: str, request_id: str) 
     try:
         resolved_path = file_security.resolve_path_within_directory(task_dir, file)
     except ValueError as exc:
-        # 任务状态理论上只应保存任务目录内的产物路径。这里不再继续拼接 URL，
-        # 避免把异常路径包装成可访问链接；同时保留原值，便于排查历史脏数据。
+        # Em teoria, o status da tarefa deveria salvar apenas o caminho do produto no diretório de tarefas. Não continuaremos a dividir URLs aqui.
+        # Evite empacotar caminhos anormais em links acessíveis; ao mesmo tempo, retém o valor original para facilitar a solução de problemas de dados sujos históricos.
         logger.warning(
             f"skip unsafe task output path, request_id: {request_id}, path: {file}, "
             f"error: {str(exc)}"
@@ -125,7 +125,7 @@ def _task_file_to_uri(file: str, endpoint: str, task_dir: str, request_id: str) 
 def _parse_byte_range(
     range_header: str | None, file_size: int, request_id: str
 ) -> tuple[int, int]:
-    """解析单段 HTTP Range，并把无效或越界请求稳定转换成 416。"""
+    """Analise um único intervalo HTTP e converta de forma confiável solicitações inválidas ou fora dos limites para 416."""
     if file_size <= 0:
         raise HttpException(
             task_id=request_id,
@@ -137,8 +137,8 @@ def _parse_byte_range(
         return 0, file_size - 1
 
     try:
-        # 视频播放器这里只需要单段 bytes range。拒绝多段请求可以避免返回体
-        # 与 Content-Range 不一致，也避免异常字符串落入 int() 产生 500。
+        # O player de vídeo precisa apenas de um intervalo de bytes. Rejeitar solicitações multipartes evita retornar o corpo
+        # Inconsistente com Content-Range, também evita que strings de exceção caiam em int() para produzir 500.
         if not range_header.startswith("bytes=") or "," in range_header:
             raise ValueError("unsupported range format")
         start_text, end_text = range_header[6:].split("-", 1)
@@ -318,8 +318,8 @@ def get_bgm_list(request: Request):
             {
                 "name": filename,
                 "size": os.path.getsize(file),
-                # 只返回文件名，避免把服务器绝对路径暴露给调用方。服务端会
-                # 在 storage/bgm 和 resource/songs 两个白名单目录中重新解析。
+                # Somente o nome do arquivo é retornado para evitar a exposição do caminho absoluto do servidor ao chamador. O servidor irá
+                # Analise novamente nos dois diretórios da lista de permissões storage/bgm e resource/songs.
                 "file": filename,
             }
         )
@@ -345,8 +345,8 @@ def upload_bgm_file(request: Request, file: UploadFile = File(...)):
     try:
         safe_filename = bgm_service.save_bgm_upload(file.filename, file.file)
     except bgm_service.BgmUploadError as exc:
-        # 上传失败通常可以由用户更换文件后恢复，因此记录 request_id 和明确原因，
-        # 但不输出文件内容或绝对路径，避免日志泄露用户数据。
+        # Falhas de upload geralmente podem ser recuperadas pelo usuário substituindo o arquivo, então registre o request_id e limpe o motivo,
+        # No entanto, o conteúdo do arquivo ou o caminho absoluto não é gerado para evitar que o log vaze dados do usuário.
         logger.warning(
             f"background music upload rejected: request_id={request_id}, error={str(exc)}"
         )
@@ -356,8 +356,8 @@ def upload_bgm_file(request: Request, file: UploadFile = File(...)):
             message=f"{request_id}: {str(exc)}",
         )
     except bgm_service.BgmServiceError as exc:
-        # 工具链或存储故障属于服务端问题，不能伪装成用户文件错误。日志保留
-        # request_id 和内部原因，HTTP 响应只返回稳定文案，避免暴露服务器路径。
+        # Falhas no conjunto de ferramentas ou no armazenamento são problemas do lado do servidor e não podem ser disfarçadas como erros de arquivo do usuário. Retenção de registros
+        # request_id e por motivos internos, a resposta HTTP retorna apenas uma cópia estável para evitar a exposição do caminho do servidor.
         logger.error(
             f"background music upload failed: request_id={request_id}, error={str(exc)}"
         )
@@ -379,8 +379,8 @@ def get_video_materials_list(request: Request):
     files = []
     for suffix in allowed_suffixes:
         files.extend(glob.glob(os.path.join(local_videos_dir, f"*.{suffix}")))
-    # 文件系统枚举顺序不稳定，直接返回会导致“顺序拼接”在不同机器或不同
-    # 时刻表现不一致。这里统一按文件名排序，至少保证服务端返回顺序可预测。
+    # A ordem de enumeração do sistema de arquivos é instável e retornar diretamente causará "emenda sequencial" em máquinas diferentes ou diferentes
+    # Desempenho inconsistente em todos os momentos. Aqui, os arquivos são classificados uniformemente por nome de arquivo, pelo menos para garantir que a ordem retornada pelo servidor seja previsível.
     files.sort(key=lambda file_path: os.path.basename(file_path).lower())
     video_materials_list = []
     for file in files:
@@ -389,8 +389,8 @@ def get_video_materials_list(request: Request):
             {
                 "name": filename,
                 "size": os.path.getsize(file),
-                # 与 BGM 一样，只返回文件名；创建任务时再在 local_videos
-                # 白名单目录内解析，避免 API 泄露宿主机绝对路径。
+                # Assim como o BGM, apenas o nome do arquivo é retornado; ao criar a tarefa, adicione-a em local_videos
+                # Analise dentro do diretório da lista de permissões para evitar que a API vaze o caminho absoluto do host.
                 "file": filename,
             }
         )
@@ -409,8 +409,8 @@ def upload_video_material_file(request: Request, file: UploadFile = File(...)):
     # check file ext
     allowed_suffixes = ("mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png")
     suffix = pathlib.Path(safe_filename).suffix.lower().lstrip(".")
-    # 按完整扩展名校验，既兼容 .MOV 这类大写后缀，也避免 photojpg 这种没有
-    # 点号的文件名因为 endswith("jpg") 被误当成合法图片。
+    # Verifique com base na extensão completa, que é compatível com sufixos maiúsculos como .MOV e evita faltas como photojpg
+    # O nome do arquivo pontilhado é confundido com uma imagem legítima por causa de endswith("jpg").
     if suffix in allowed_suffixes:
         local_videos_dir = utils.storage_dir("local_videos", create=True)
         save_path = os.path.join(local_videos_dir, safe_filename)

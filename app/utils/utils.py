@@ -70,15 +70,15 @@ _CLIP_SPEED_MAX = 2.0
 
 
 def normalize_clip_speed(value, default: float = 1.0) -> float:
-    """将片段播放速度归一化到 WebUI 支持的安全范围。"""
+    """Normaliza a velocidade de reprodução do clipe para a faixa segura suportada pela WebUI."""
     try:
         speed = float(value)
     except (TypeError, ValueError):
         return default
 
-    # NaN 会绕过普通的大小比较，并在 MoviePy 计算 duration 时传播；无穷值也不
-    # 是合法用户输入。两者统一回退默认值，保证 API 和内部直接调用都不会生成
-    # 无效时间线。零值和负值同样无法表示正常播放速度。
+    # NaN escapa comparações normais e contamina duration no MoviePy; infinito não é entrada
+    # válida. Ambos voltam ao padrão para API e chamadas internas não gerarem timeline inválida.
+    # Zero e negativo não representam velocidade de reprodução normal.
     if not math.isfinite(speed) or speed <= 0:
         return default
 
@@ -140,19 +140,18 @@ def public_dir(sub_dir: str = ""):
 
 def get_ffmpeg_binary() -> str:
     """
-    解析当前进程应该使用的 FFmpeg 可执行文件。
+    Resolve qual executável FFmpeg o processo atual deve usar.
 
-    增加原因：
-    1. 视频编码、静音音频生成、pydub 音频转码都依赖 FFmpeg；
-    2. Windows 便携包、Docker 和用户自定义安装目录经常出现 PATH 不一致；
-    3. 集中解析可以让所有调用方使用同一套优先级，减少某条链路能跑、
-       另一条链路找不到 FFmpeg 的现场问题。
+    Motivos:
+    1. Codificação de vídeo, áudio silencioso e pydub dependem do FFmpeg;
+    2. Pacotes portáveis no Windows, Docker e instalações customizadas divergem no PATH;
+    3. Centralizar a resolução alinha todos os chamadores na mesma prioridade.
 
-    优先级：
-    1. IMAGEIO_FFMPEG_EXE：MoviePy/imageio 约定的显式配置；
-    2. 系统 PATH 中的 ffmpeg；
-    3. imageio-ffmpeg 依赖提供的内置二进制；
-    4. 字符串 "ffmpeg" 兜底，交给 subprocess 在运行时暴露更具体错误。
+    Prioridade:
+    1. IMAGEIO_FFMPEG_EXE — configuração explícita MoviePy/imageio;
+    2. ffmpeg no PATH do sistema;
+    3. binário embutido do imageio-ffmpeg;
+    4. string "ffmpeg" como fallback para erro mais claro em runtime via subprocess.
     """
     configured_ffmpeg = os.environ.get("IMAGEIO_FFMPEG_EXE")
     if configured_ffmpeg:
@@ -241,10 +240,9 @@ def split_string_by_punctuations(s):
             continue
 
         if char == "," and previous_char.isdigit() and next_char.isdigit():
-            # 英文数字里的千分位逗号不是断句符，例如 "1,000 years"。
-            # Edge TTS 的 word boundary 通常会把这种数字整体作为连续内容返回；
-            # 如果这里拆成 "1" 和 "000 years"，后续字幕聚合会无法匹配脚本原文，
-            # 进而错误回退到 Whisper。
+            # Vírgula de milhar em números em inglês não é quebra de linha, ex.: "1,000 years".
+            # O word boundary do Edge TTS costuma devolver o número inteiro; dividir em "1" e
+            # "000 years" impede a agregação de legendas de bater com o script e força fallback ao Whisper.
             txt += char
             continue
 
@@ -261,12 +259,11 @@ def split_string_by_punctuations(s):
 
 def normalize_script_for_subtitle_matching(video_script: str) -> str:
     """
-    清理字幕匹配前的脚本文本。
+    Limpa o script antes da correspondência de legendas.
 
-    用户可能手动输入 Markdown 分隔符、标题强调或 `_` 这类格式符号。
-    这些字符通常不会出现在 TTS/Whisper 的识别结果里；如果继续参与
-    字幕逐行匹配，脚本行数量会大于真实字幕行数量，最终可能补出
-    `00:00:00,000 --> 00:00:00,000`，导致剪辑软件无法导入 SRT。
+    O usuário pode inserir Markdown, ênfase de título ou `_`. Isso raramente aparece
+    no TTS/Whisper; se entrar na correspondência linha a linha, o script terá mais linhas
+    que as legendas e pode gerar `00:00:00,000 --> 00:00:00,000`, SRT inválido em editores.
     """
     video_script = video_script or ""
     underscore_count = video_script.count("_")
@@ -275,8 +272,8 @@ def normalize_script_for_subtitle_matching(video_script: str) -> str:
     removed_separator_lines = 0
     for line in video_script.splitlines():
         line = line.strip()
-        # Markdown 分隔符或强调符号单独成行时不会被 TTS 朗读，必须从
-        # 脚本行里移除，避免字幕聚合卡在这类“不可发声”的目标行上。
+        # Separadores Markdown sozinhos em uma linha não são lidos pelo TTS; removemos
+        # para a agregação não travar em linhas-alvo “inaudíveis”.
         if re.fullmatch(r"[-*_]{3,}", line):
             removed_separator_lines += 1
             continue
@@ -305,11 +302,11 @@ def resolve_ui_language(
     default_language: str = "en",
 ) -> str:
     """
-    按“已保存设置、浏览器语言、默认语言”的优先级选择界面语言。
+    Escolhe o idioma da interface na ordem: config salva, idioma do navegador, padrão.
 
-    浏览器通常返回带地区的 locale，例如 ``zh-CN``、``pt-BR``。语言文件使用
-    ``zh``、``pt`` 这类基础代码，因此先尝试完整匹配，再回退到连字符前的语言
-    代码。函数保持纯逻辑，避免把浏览器上下文和配置写入耦合到工具层，便于测试。
+    Locales costumam incluir região (``zh-CN``, ``pt-BR``); os JSON usam códigos base
+    (``zh``, ``pt``). Tentamos match completo e depois o prefixo antes do hífen. Lógica
+    pura, desacoplada de contexto de navegador, para facilitar testes.
     """
     supported = [str(language).strip() for language in supported_languages]
     supported_by_lower = {
@@ -337,15 +334,15 @@ def resolve_ui_language(
     if default_match:
         return default_match
 
-    # 正常项目始终包含英文；保留空语言集合兜底，避免损坏的语言目录让页面
-    # 初始化直接抛异常，后续翻译函数会继续显示原始 key 以便诊断。
+    # Projetos válidos incluem inglês; conjunto vazio evita crash na init com pasta i18n corrompida;
+    # chaves originais permanecem visíveis para diagnóstico.
     return supported[0] if supported else default_language
 
 
 @lru_cache(maxsize=8)
 def load_locales(i18n_dir):
-    # WebUI 每次交互都会触发 Streamlit 重新执行脚本，语言文件运行期不会变化，
-    # 因此缓存解析结果，避免反复读取和解析所有 i18n JSON 文件。
+    # Cada interação na WebUI reexecuta o script Streamlit; arquivos de idioma não mudam em runtime,
+    # então cacheamos o parse para não reler todos os JSON i18n.
     _locales = {}
     for root, dirs, files in os.walk(i18n_dir):
         for file in files:

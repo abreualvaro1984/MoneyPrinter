@@ -1,0 +1,111 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>APIs</h1>
+  <p>YouTube (pesquisa/nichos/trends) e IAs (roteiros/trends). Digite as keys aqui — ficam no banco.</p>
+</header>
+
+<section class="card" style="margin-bottom:1.25rem;">
+  <h2 style="margin-top:0;">YouTube Data API</h2>
+  <p class="muted" style="margin-top:0;">
+    Usada na descoberta de nichos e trends.
+    {% if youtube_masked %}
+      Key atual: <code>{{ youtube_masked }}</code>
+    {% else %}
+      Nenhuma key salva ainda.
+    {% endif %}
+  </p>
+  <p class="actions" style="margin:0 0 0.75rem;flex-wrap:wrap;">
+    <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">1) Ativar API →</a>
+    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">2) Criar API key (AIza…) →</a>
+  </p>
+  <form method="post" action="{% url 'ui:apis_youtube_save' %}" class="form-stack" id="youtube-api-form">
+    {% csrf_token %}
+    <div>
+      <label for="id_api_key">YouTube API key</label>
+      <input
+        type="password"
+        name="api_key"
+        id="id_api_key"
+        value="{{ youtube_key.api_key }}"
+        placeholder="AIza…"
+        autocomplete="off"
+        spellcheck="false"
+        style="width:100%;max-width:36rem;"
+      >
+      <p class="muted" style="margin:0.35rem 0 0;">Não use GOCSPX- (client secret OAuth). Deixe vazio e salve para remover.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Salvar YouTube key</button>
+      <button
+        type="button"
+        class="btn secondary"
+        hx-post="{% url 'ui:apis_youtube_test' %}"
+        hx-include="#id_api_key"
+        hx-target="#youtube-api-test"
+        hx-swap="innerHTML"
+        hx-indicator="#youtube-api-test-busy"
+      >Testar</button>
+      <span id="youtube-api-test-busy" class="htmx-indicator muted">testando…</span>
+    </div>
+    <div id="youtube-api-test" class="api-test-slot"></div>
+  </form>
+</section>
+
+<header class="page-head" style="margin-top:0.5rem;">
+  <h2 style="margin:0;">APIs de IA</h2>
+  <p>Cadastre várias keys (ChatGPT, Gemini, Grok, Kimi, DeepSeek, Z.AI…). Em Trends/Plano você escolhe qual usar.</p>
+</header>
+
+<p class="actions" style="margin-bottom:1rem;">
+  <a class="btn" href="{% url 'ui:apis_create' %}">Nova API de IA</a>
+</p>
+
+<section class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Provider</th>
+        <th>Key</th>
+        <th>Modelo</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in credentials %}
+      <tr>
+        <td>{{ c.name }}{% if c.is_default %} ★{% endif %}</td>
+        <td>{{ c.provider }}</td>
+        <td><code>{{ c.api_key_masked }}</code></td>
+        <td>{{ c.model_name|default:"default" }}</td>
+        <td>{% if c.is_active %}<span class="badge ok">ativa</span>{% else %}<span class="badge">off</span>{% endif %}</td>
+        <td>
+          <button
+            type="button"
+            class="btn secondary btn-compact"
+            hx-post="{% url 'ui:apis_test' c.pk %}"
+            hx-target="#api-test-{{ c.pk }}"
+            hx-swap="innerHTML"
+            hx-indicator="#api-test-busy-{{ c.pk }}"
+          >Testar</button>
+          <a href="{% url 'ui:apis_edit' c.pk %}">Editar</a>
+          ·
+          <form method="post" action="{% url 'ui:apis_delete' c.pk %}" style="display:inline;" onsubmit="return confirm('Excluir esta API?');">
+            {% csrf_token %}
+            <button type="submit" class="btn secondary btn-compact">Excluir</button>
+          </form>
+          <span id="api-test-busy-{{ c.pk }}" class="htmx-indicator muted">testando…</span>
+          <div id="api-test-{{ c.pk }}" class="api-test-slot"></div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Nenhuma API cadastrada ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}
