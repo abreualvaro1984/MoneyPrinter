@@ -2,7 +2,7 @@
 {% block content %}
 <header class="page-head">
   <h1>{{ page_heading }}</h1>
-  <p>Escolha a IA e cole <strong>só a API key</strong>. URL e modelo são preenchidos automaticamente.</p>
+  <p>Escolha a IA, o <strong>modelo</strong> e cole a API key. A URL da API é preenchida automaticamente.</p>
 </header>
 
 <div class="split">
@@ -65,13 +65,52 @@
   </aside>
 </div>
 
+<script type="application/json" id="llm-models-catalog">{{ form.models_catalog_json|safe }}</script>
 <script>
 (function () {
   const select = document.getElementById("id_provider");
+  const modelSelect = document.getElementById("id_model_name");
   const link = document.getElementById("provider-key-link");
   const howto = document.getElementById("provider-howto");
   if (!select || !link) return;
-  function sync() {
+
+  let catalog = {};
+  try {
+    const el = document.getElementById("llm-models-catalog");
+    catalog = el ? JSON.parse(el.textContent || "{}") : {};
+  } catch (e) {
+    catalog = {};
+  }
+
+  function fillModels(keepValue) {
+    if (!modelSelect) return;
+    const provider = select.value;
+    const models = catalog[provider] || [];
+    const previous = keepValue || modelSelect.value || "";
+    modelSelect.innerHTML = "";
+    let found = false;
+    models.forEach(function (m) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === previous) {
+        opt.selected = true;
+        found = true;
+      }
+      modelSelect.appendChild(opt);
+    });
+    if (previous && !found) {
+      const opt = document.createElement("option");
+      opt.value = previous;
+      opt.textContent = previous;
+      opt.selected = true;
+      modelSelect.insertBefore(opt, modelSelect.firstChild);
+    } else if (!found && models.length) {
+      modelSelect.value = models[0];
+    }
+  }
+
+  function syncProviderMeta() {
     const opt = select.options[select.selectedIndex];
     const url = opt && opt.getAttribute("data-key-url");
     const tip = opt && opt.getAttribute("data-howto");
@@ -83,8 +122,12 @@
     }
     if (howto) howto.textContent = tip || "";
   }
-  select.addEventListener("change", sync);
-  sync();
+
+  select.addEventListener("change", function () {
+    syncProviderMeta();
+    fillModels("");
+  });
+  syncProviderMeta();
 })();
 </script>
 {% endblock %}

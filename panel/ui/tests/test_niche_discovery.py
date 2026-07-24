@@ -153,3 +153,48 @@ class NicheDiscoverySignalTests(TestCase):
         self.assertContains(response, "Narrado com gráficos")
         self.assertContains(response, "Evidências")
         self.assertContains(response, "1000000")
+        self.assertContains(response, "Adicionar")
+        self.assertContains(response, "Detalhes")
+
+    def test_add_suggestion_stays_on_discovery_with_htmx(self):
+        from panel.niches.models import Niche
+
+        run = NicheDiscoveryRun.objects.create(
+            kind=NicheDiscoveryRun.Kind.ROOT,
+            video_format="dark",
+            llm_credential=self.cred,
+            summary_pt="Resumo",
+            suggestions_json=[
+                {
+                    "name": "Curiosidades narradas",
+                    "why": "quente",
+                    "keywords": ["curiosidades"],
+                    "heat_score": 70,
+                }
+            ],
+        )
+        response = self.client.post(
+            reverse("ui:niches_add_suggestion", args=[run.pk]),
+            {"index": "0"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Adicionado")
+        self.assertContains(response, "Detalhes")
+        niche = Niche.objects.get(name="Curiosidades narradas")
+        run.refresh_from_db()
+        self.assertEqual(run.suggestions_json[0]["added_niche_id"], niche.pk)
+
+    def test_niches_index_shows_history_with_llm(self):
+        NicheDiscoveryRun.objects.create(
+            kind=NicheDiscoveryRun.Kind.ROOT,
+            video_format="sleep",
+            llm_credential=self.cred,
+            summary_pt="Histórico",
+            suggestions_json=[{"name": "X"}],
+        )
+        response = self.client.get(reverse("ui:nichos"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Histórico de pesquisas")
+        self.assertContains(response, "OpenAI")
+        self.assertContains(response, "sleep")

@@ -18,7 +18,7 @@
 - `panel/research/` — research snapshots (legado + base YT)
 - `panel/jobs/` — create / clip / dub / research jobs
 - `panel/publishing/` — SocialAccount, PublishTarget
-- `panel/ui/` — UI HTMX (shell + Trends + Roteiros + Nichos + APIs)
+- `panel/ui/` — UI HTMX (shell + Trends + Roteiros + Plano + Nichos + APIs)
 - `agents/` — contexto de agentes
 - `.cursor/skills/moneyprinter-panel/` — skill Cursor do painel
 - `roadmap.md` — progresso
@@ -31,6 +31,16 @@
 | LLMs | `/apis/` + Testar | `LlmCredential` |
 | Anti-IA Gemini | env ou Gemini em `/apis/` | `ai_detect.py` |
 | OAuth upload | JSON + canal | separado da API key de pesquisa |
+
+## Áreas de UI
+
+| Rota | Papel |
+|------|--------|
+| `/nichos/` | Descoberta + histórico |
+| `/trends/` | Temas quentes |
+| `/roteiros/` | Texto + anti-IA |
+| `/planos/` | Plano: roteiro + assets + voz + dub (sem render) |
+| `/apis/` | Keys YouTube + IA |
 
 ## Convenções
 

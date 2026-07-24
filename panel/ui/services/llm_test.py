@@ -44,10 +44,15 @@ def test_llm_credential(credential: LlmCredential) -> LlmTestResult:
     )
 
 
-def test_llm_draft(provider: str, api_key: str) -> LlmTestResult:
-    """Testa provider + key do formulário (ainda sem salvar)."""
+def test_llm_draft(
+    provider: str,
+    api_key: str,
+    model_name: str = "",
+) -> LlmTestResult:
+    """Testa provider + key (+ modelo) do formulário (ainda sem salvar)."""
     provider = (provider or "").strip()
     api_key = (api_key or "").strip()
+    model_name = (model_name or "").strip()
     if not provider:
         return LlmTestResult(False, "Selecione a IA antes de testar.", 0.0)
     if not api_key:
@@ -58,7 +63,7 @@ def test_llm_draft(provider: str, api_key: str) -> LlmTestResult:
         name="__test__",
         provider=provider,
         api_key=api_key,
-        model_name=defaults.get("model_name") or "",
+        model_name=model_name or defaults.get("model_name") or "",
         base_url=defaults.get("base_url") or "",
     )
     return test_llm_credential(draft)

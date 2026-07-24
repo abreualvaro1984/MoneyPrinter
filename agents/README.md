@@ -8,6 +8,7 @@ Documentação permanente para humanos e para o Cursor. **Leia antes de implemen
 | [architect.md](architect.md) | Stack, pastas, convenções, credenciais |
 | [trends-researcher.md](trends-researcher.md) | Trends + nichos com sinais YT |
 | [scriptwriter.md](scriptwriter.md) | Roteiro humano + anti-IA (Gemini) |
+| [video-planner.md](video-planner.md) | Plano de vídeo (roteiro/assets/voz/dub) |
 | [clip-director.md](clip-director.md) | Cortes YT / locais (futuro) |
 | [visual-matcher.md](visual-matcher.md) | Imagem no momento certo (futuro) |
 | [publisher.md](publisher.md) | Contas, metadados, upload |

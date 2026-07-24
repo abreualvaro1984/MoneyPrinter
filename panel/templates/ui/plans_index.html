@@ -1,0 +1,72 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Plano de vídeo</h1>
+  <p>
+    Escolha o nicho e o formato. A IA sugere roteiro, imagens/vídeos (ou takes gravados),
+    voz TTS e ideias de dublagem. Você edita — ainda <strong>não</strong> gera o MP4.
+  </p>
+</header>
+
+<article class="card" style="margin-bottom:1.25rem;">
+  <h2>Novo plano</h2>
+  <form
+    method="post"
+    action="{% url 'ui:plans_index' %}"
+    class="form-stack js-ai-wait"
+    data-wait-title="Montando o plano de vídeo…"
+    data-wait-sub="Roteiro, assets, voz e dublagem. Use Parar para cancelar."
+  >
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+      {% if field.errors %}<p class="error">{{ field.errors|striptags }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <button class="btn" type="submit">Gerar plano com IA</button>
+  </form>
+</article>
+
+<section>
+  <h2 style="margin-bottom:0.75rem;">Histórico</h2>
+  <div class="table-wrap card" style="padding:0;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Título</th>
+          <th>Nicho</th>
+          <th>Formato</th>
+          <th>IA</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plans %}
+        <tr>
+          <td>{{ p.id }}</td>
+          <td>{{ p.title|default:p.topic|truncatechars:40 }}</td>
+          <td>{{ p.niche }}</td>
+          <td><code>{{ p.video_format }}</code></td>
+          <td>
+            {% if p.llm_credential %}
+              {{ p.llm_credential.name }}
+            {% else %}
+              <span class="muted">padrão</span>
+            {% endif %}
+          </td>
+          <td>{{ p.get_status_display }}</td>
+          <td><a href="{% url 'ui:plans_detail' p.pk %}">Abrir</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">Nenhum plano ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

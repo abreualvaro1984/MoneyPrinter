@@ -1,0 +1,122 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<header class="page-head">
+  <h1>Plano #{{ plan.id }}</h1>
+  <p>
+    {{ plan.niche }} ·
+    {% if video_format %}<strong>{{ video_format.label }}</strong> · {% endif %}
+    IA:
+    {% if plan.llm_credential %}
+      {{ plan.llm_credential.name }} ({{ plan.llm_credential.provider }})
+    {% else %}
+      padrão
+    {% endif %}
+  </p>
+  {% if summary %}<p class="muted">{{ summary }}</p>{% endif %}
+</header>
+
+<form method="post" action="{% url 'ui:plans_save' plan.pk %}" class="form-stack">
+  {% csrf_token %}
+
+  <article class="card" style="margin-bottom:1rem;">
+    <h2>Roteiro</h2>
+    <div>
+      <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+      {{ form.title }}
+    </div>
+    <div>
+      <label for="{{ form.topic.id_for_label }}">{{ form.topic.label }}</label>
+      {{ form.topic }}
+    </div>
+    <div>
+      <label for="{{ form.script_body.id_for_label }}">{{ form.script_body.label }}</label>
+      {{ form.script_body }}
+    </div>
+  </article>
+
+  <article class="card" style="margin-bottom:1rem;">
+    <h2>Voz</h2>
+    <div>
+      <label for="{{ form.voice_name.id_for_label }}">{{ form.voice_name.label }}</label>
+      {{ form.voice_name }}
+    </div>
+    <div>
+      <label for="{{ form.voice_notes.id_for_label }}">{{ form.voice_notes.label }}</label>
+      {{ form.voice_notes }}
+    </div>
+  </article>
+
+  <article class="card" style="margin-bottom:1rem;">
+    <h2>Imagens / vídeos / takes</h2>
+    <p class="muted">Dark/sleep/tela preta → stock ou tela. Aparecendo → takes gravados + B-roll.</p>
+    <div>
+      <label for="{{ form.assets_text.id_for_label }}">{{ form.assets_text.label }}</label>
+      {{ form.assets_text }}
+      {% if form.assets_text.help_text %}<p class="muted">{{ form.assets_text.help_text }}</p>{% endif %}
+    </div>
+    {% if plan.assets_json %}
+    <ul class="muted" style="margin-top:0.75rem;padding-left:1.1rem;font-size:0.9rem;">
+      {% for a in plan.assets_json %}
+      <li>
+        <span class="badge">{{ a.kind }}</span>
+        {{ a.query_or_brief }}
+        {% if a.why %} — {{ a.why }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+
+  <article class="card" style="margin-bottom:1rem;">
+    <h2>Dublagem (sugestões)</h2>
+    <p class="muted">Vídeos gringos que valem dublar. Só sugestão — não inicia o job Dub.</p>
+    <div>
+      <label for="{{ form.dub_text.id_for_label }}">{{ form.dub_text.label }}</label>
+      {{ form.dub_text }}
+    </div>
+    {% if plan.dub_suggestions_json %}
+    <ul class="muted" style="margin-top:0.75rem;padding-left:1.1rem;font-size:0.9rem;">
+      {% for d in plan.dub_suggestions_json %}
+      <li>
+        {% if d.url %}<a href="{{ d.url }}" target="_blank" rel="noopener">{{ d.title }}</a>{% else %}{{ d.title }}{% endif %}
+        {% if d.why %} — {{ d.why }}{% endif %}
+        {% if d.search_query and not d.url %}
+          · buscar: <code>{{ d.search_query }}</code>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+
+  <article class="card" style="margin-bottom:1rem;">
+    <div>
+      <label for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+      {{ form.status }}
+    </div>
+  </article>
+
+  <div class="actions">
+    <button class="btn" type="submit">Salvar</button>
+    <a class="btn secondary" href="{% url 'ui:plans_index' %}">Lista</a>
+  </div>
+</form>
+
+<div class="actions" style="margin-top:1rem;">
+  <form
+    method="post"
+    action="{% url 'ui:plans_regenerate' plan.pk %}"
+    class="js-ai-wait"
+    data-wait-title="Regenerando plano…"
+    data-wait-sub="Novo roteiro/assets/voz. Use Parar para cancelar."
+  >{% csrf_token %}
+    <button class="btn warn" type="submit">Regenerar plano</button>
+  </form>
+  <form method="post" action="{% url 'ui:plans_to_script' plan.pk %}">{% csrf_token %}
+    <button class="btn secondary" type="submit">Enviar para Roteiros</button>
+  </form>
+  {% if plan.script_draft_id %}
+  <a class="btn secondary" href="{% url 'ui:scripts_detail' plan.script_draft_id %}">Abrir roteiro #{{ plan.script_draft_id }}</a>
+  {% endif %}
+</div>
+{% endblock %}

@@ -2,9 +2,9 @@
 
 Fonte da verdade do produto. Ao concluir uma entrega, marque `[x]` e atualize a data.
 
-**Última sync:** 2026-07-23 — YouTube key na UI `/apis/` (banco + Testar); anti-IA Gemini; nichos com sinais YT.
+**Última sync:** 2026-07-24 — Plano de vídeo (`/planos/`); nichos com histórico/Add in-place; cancel wait.
 
-**Decisões:** UI Django + HTMX (tema escuro colorido) · MVP = itens 1 + 5 · áreas separadas (nunca um botão único “fazer tudo”).
+**Decisões:** UI Django + HTMX (tema escuro colorido) · MVP = itens 1 + 5 + Plano · áreas separadas (nunca um botão único “fazer tudo”).
 
 Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-panel/SKILL.md`](.cursor/skills/moneyprinter-panel/SKILL.md)
 
@@ -52,6 +52,19 @@ Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-pa
 
 ---
 
+## Item 9 — Plano de vídeo (MVP parcial)
+
+Área **Plano** (`/planos/`) — planeja e edita; **não** enfileira Create/Dub.
+
+- [x] Formulário: nicho + formato + tema opcional + IA
+- [x] IA sugere roteiro editável, assets (stock vs gravado conforme formato), voz TTS
+- [x] Sugestões simples de dublagem (vídeos gringos / query)
+- [x] Salvar / regenerar / enviar roteiro para área Roteiros
+- [x] Histórico de planos com IA usada
+- [ ] Enfileirar Create/Dub a partir do plano (futuro)
+
+---
+
 ## Item 2 — Cortes YouTube com visão (futuro)
 
 - [ ] Download + análise visual/contextual (TwelveLabs / Whisper)
@@ -81,9 +94,11 @@ Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-pa
 - [x] Descoberta de nichos/subnichos pela IA com botão Add (SQLite)
 - [x] Descoberta ancorada em sinais reais YouTube (mostPopular BR + buscas recentes por views)
 - [x] Filtro de **formato de vídeo** na descoberta (dark / dormir / tela preta / ambiente / aparecendo / híbrido / tela / qualquer) com validação da IA
+- [x] Add de sugestão **sem sair da lista** (HTMX) + botão Detalhes
+- [x] Histórico de pesquisas de nichos com IA usada
 - [x] YouTube API key digitável na UI `/apis/` (banco; `.env` só fallback)
 - [x] Botão **Testar** YouTube API key (chamada barata mostPopular BR)
-- [x] Cadastro de API de IA só com key (ChatGPT, Gemini, Kimi, DeepSeek, Z.AI)
+- [x] Cadastro de API de IA só com key (ChatGPT, Gemini, Grok, Kimi, DeepSeek, Z.AI)
 - [x] Botão Testar API (prompt mínimo) no cadastro/lista de IAs
 - [x] Skill Cursor do painel (`.cursor/skills/moneyprinter-panel/`)
 
@@ -110,4 +125,5 @@ Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-pa
 - [x] Trends YT ponta a ponta na UI
 - [x] Roteiro gerado + editável + score anti-IA (Gemini)
 - [x] Nichos com sinais reais YouTube + API key na UI
+- [x] Plano de vídeo (planejar/editar sem render)
 - [x] Checks deste arquivo atualizados a cada entrega

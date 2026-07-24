@@ -1,15 +1,132 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
 
-{% block after_related_objects %}{{ block.super }}{% endblock %}
+{% block after_related_objects %}
+{{ block.super }}
+{% if show_usage_history %}
+<div class="module" id="llm-usage-history" style="margin-top:1.5rem;">
+  <h2>Histórico de uso desta IA</h2>
+  <p style="margin:0.5rem 0 1rem;opacity:0.85;">
+    Contagem das pesquisas/planos já ligados a esta credencial
+    (não inclui tokens nem custo da API).
+  </p>
+  <ul style="display:flex;gap:1.5rem;flex-wrap:wrap;list-style:none;padding:0;margin:0 0 1.25rem;">
+    <li><strong>{{ usage_summary.trends }}</strong> Trends</li>
+    <li><strong>{{ usage_summary.niches }}</strong> Nichos</li>
+    <li><strong>{{ usage_summary.plans }}</strong> Planos</li>
+  </ul>
+
+  <h3>Trends (últimas {{ usage_trends|length }})</h3>
+  {% if usage_trends %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Nicho</th><th>Quando</th><th>Resumo</th></tr>
+    </thead>
+    <tbody>
+      {% for r in usage_trends %}
+      <tr>
+        <td><a href="{% url 'admin:ui_trendrun_change' r.pk %}">#{{ r.pk }}</a></td>
+        <td>{{ r.niche }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>{{ r.summary_pt|truncatechars:80|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhuma pesquisa de trends ainda.</p>
+  {% endif %}
+
+  <h3>Descobertas de nichos (últimas {{ usage_niche_discoveries|length }})</h3>
+  {% if usage_niche_discoveries %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Tipo</th><th>Formato</th><th>Quando</th></tr>
+    </thead>
+    <tbody>
+      {% for r in usage_niche_discoveries %}
+      <tr>
+        <td><a href="{% url 'admin:ui_nichediscoveryrun_change' r.pk %}">#{{ r.pk }}</a></td>
+        <td>{{ r.get_kind_display }}{% if r.parent_niche %} · {{ r.parent_niche }}{% endif %}</td>
+        <td>{{ r.video_format|default:"—" }}</td>
+        <td>{{ r.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhuma descoberta de nichos ainda.</p>
+  {% endif %}
+
+  <h3>Planos de vídeo (últimas {{ usage_video_plans|length }})</h3>
+  {% if usage_video_plans %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Título / tema</th><th>Nicho</th><th>Status</th><th>Quando</th></tr>
+    </thead>
+    <tbody>
+      {% for p in usage_video_plans %}
+      <tr>
+        <td><a href="{% url 'admin:ui_videoplan_change' p.pk %}">#{{ p.pk }}</a></td>
+        <td>{{ p.title|default:p.topic|default:"—" }}</td>
+        <td>{{ p.niche }}</td>
+        <td>{{ p.get_status_display }}</td>
+        <td>{{ p.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhum plano de vídeo ainda.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
 
 {% block admin_change_form_document_ready %}
 {{ block.super }}
+<script type="application/json" id="llm-models-catalog">{{ adminform.form.models_catalog_json|safe }}</script>
 <script>
 (function () {
   function csrfToken() {
     var input = document.querySelector("[name=csrfmiddlewaretoken]");
     return input ? input.value : "";
+  }
+
+  function fillModels(keepValue) {
+    const select = document.getElementById("id_provider");
+    const modelSelect = document.getElementById("id_model_name");
+    if (!select || !modelSelect) return;
+    let catalog = {};
+    try {
+      const el = document.getElementById("llm-models-catalog");
+      catalog = el ? JSON.parse(el.textContent || "{}") : {};
+    } catch (e) {
+      catalog = {};
+    }
+    const models = catalog[select.value] || [];
+    const previous = keepValue || modelSelect.value || "";
+    modelSelect.innerHTML = "";
+    let found = false;
+    models.forEach(function (m) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === previous) {
+        opt.selected = true;
+        found = true;
+      }
+      modelSelect.appendChild(opt);
+    });
+    if (previous && !found) {
+      const opt = document.createElement("option");
+      opt.value = previous;
+      opt.textContent = previous;
+      opt.selected = true;
+      modelSelect.insertBefore(opt, modelSelect.firstChild);
+    } else if (!found && models.length) {
+      modelSelect.value = models[0];
+    }
   }
 
   function ensureLink() {
@@ -37,7 +154,7 @@
     }
     const link = document.getElementById("provider-key-link");
     const howto = document.getElementById("provider-howto");
-    function sync() {
+    function syncMeta() {
       const opt = select.options[select.selectedIndex];
       const url = opt && opt.getAttribute("data-key-url");
       const tip = opt && opt.getAttribute("data-howto");
@@ -49,8 +166,11 @@
       }
       if (howto) howto.textContent = tip || "";
     }
-    select.addEventListener("change", sync);
-    sync();
+    select.addEventListener("change", function () {
+      syncMeta();
+      fillModels("");
+    });
+    syncMeta();
   }
 
   function ensureTest() {
@@ -101,6 +221,7 @@
           body = new URLSearchParams({
             provider: provider ? provider.value : "",
             api_key: apiKey.value || "",
+            model_name: (document.getElementById("id_model_name") || {}).value || "",
           });
         }
         const resp = await fetch(url, {

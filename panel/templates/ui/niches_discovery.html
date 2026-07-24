@@ -5,10 +5,17 @@
     {% if run.kind == "sub" %}Subnichos de {{ run.parent_niche }}{% else %}Nichos em alta{% endif %}
     #{{ run.id }}
   </h1>
-  <p>{{ run.summary_pt|default:"Sugestões ancoradas em sinais do YouTube. Clique em Add para salvar no SQLite." }}</p>
-  {% if video_format %}
-  <p class="muted">Formato filtrado: <strong>{{ video_format.label }}</strong> — {{ video_format.short }}</p>
-  {% endif %}
+  <p>{{ run.summary_pt|default:"Sugestões ancoradas em sinais do YouTube. Clique em Adicionar para salvar sem sair desta lista." }}</p>
+  <p class="muted">
+    {% if video_format %}<strong>{{ video_format.label }}</strong> · {% endif %}
+    IA:
+    {% if run.llm_credential %}
+      {{ run.llm_credential.name }} ({{ run.llm_credential.provider }})
+    {% else %}
+      padrão / config
+    {% endif %}
+    · {{ run.created_at|date:"d/m/Y H:i" }}
+  </p>
 </header>
 
 {% with signals=run.signals_json %}
@@ -45,33 +52,68 @@
 
 <div class="grid">
   {% for s in suggestions %}
-  <article class="card">
+  <article class="card" id="suggestion-card-{{ forloop.counter0 }}">
     <span class="badge ok">heat {{ s.heat_score }}</span>
     {% if s.format_fit %}<span class="badge">fit {{ s.format_fit }}</span>{% endif %}
     <h3>{{ s.name }}</h3>
-    <p class="muted">{{ s.why }}</p>
-    {% if s.format_notes %}
-    <p class="muted" style="font-size:0.9rem;"><strong>Formato:</strong> {{ s.format_notes }}</p>
-    {% endif %}
+    <p class="muted">{{ s.why|truncatechars:140 }}</p>
     {% if s.keywords %}
-    <p class="muted">{% for k in s.keywords %}<span class="badge">{{ k }}</span> {% endfor %}</p>
+    <p class="muted">{% for k in s.keywords|slice:":4" %}<span class="badge">{{ k }}</span> {% endfor %}</p>
     {% endif %}
-    {% if s.evidence %}
-    <p class="muted" style="margin-top:0.5rem;"><strong>Evidências:</strong></p>
-    <ul class="muted" style="margin:0.25rem 0 0; padding-left:1.1rem; font-size:0.88rem;">
-      {% for e in s.evidence %}
-      <li>
-        {% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title|truncatechars:70 }}</a>{% else %}{{ e.title|truncatechars:70 }}{% endif %}
-        {% if e.view_count %} · {{ e.view_count }} views{% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    <form method="post" action="{% url 'ui:niches_add_suggestion' run.pk %}" style="margin-top:0.75rem;">
-      {% csrf_token %}
-      <input type="hidden" name="index" value="{{ forloop.counter0 }}">
-      <button class="btn" type="submit">Add</button>
-    </form>
+
+    <div id="suggestion-actions-{{ forloop.counter0 }}">
+      {% if s.added_niche_id %}
+      <div class="actions suggestion-actions" style="margin-top:0.75rem;flex-wrap:wrap;">
+        <span class="badge ok">Adicionado</span>
+        <a class="btn secondary btn-compact" href="{% url 'ui:niches_detail' s.added_niche_id %}">Detalhes</a>
+      </div>
+      {% else %}
+      <div class="actions suggestion-actions" style="margin-top:0.75rem;flex-wrap:wrap;">
+        <button
+          type="button"
+          class="btn btn-compact"
+          hx-post="{% url 'ui:niches_add_suggestion' run.pk %}"
+          hx-vals='{"index": "{{ forloop.counter0 }}"}'
+          hx-target="#suggestion-actions-{{ forloop.counter0 }}"
+          hx-swap="innerHTML"
+          hx-disabled-elt="this"
+        >Adicionar</button>
+        <button
+          type="button"
+          class="btn secondary btn-compact"
+          data-toggle-details="suggestion-details-{{ forloop.counter0 }}"
+        >Detalhes</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="suggestion-details-{{ forloop.counter0 }}" class="suggestion-details" hidden>
+      {% if s.format_notes %}
+      <p class="muted" style="font-size:0.9rem;margin-top:0.75rem;"><strong>Formato:</strong> {{ s.format_notes }}</p>
+      {% endif %}
+      {% if s.why %}
+      <p class="muted" style="margin-top:0.5rem;">{{ s.why }}</p>
+      {% endif %}
+      {% if s.keywords %}
+      <p class="muted">{% for k in s.keywords %}<span class="badge">{{ k }}</span> {% endfor %}</p>
+      {% endif %}
+      {% if s.evidence %}
+      <p class="muted" style="margin-top:0.5rem;"><strong>Evidências:</strong></p>
+      <ul class="muted" style="margin:0.25rem 0 0; padding-left:1.1rem; font-size:0.88rem;">
+        {% for e in s.evidence %}
+        <li>
+          {% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener">{{ e.title|truncatechars:70 }}</a>{% else %}{{ e.title|truncatechars:70 }}{% endif %}
+          {% if e.view_count %} · {{ e.view_count }} views{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if s.added_niche_id %}
+      <p class="actions" style="margin-top:0.75rem;">
+        <a class="btn secondary btn-compact" href="{% url 'ui:niches_detail' s.added_niche_id %}">Abrir nicho salvo</a>
+      </p>
+      {% endif %}
+    </div>
   </article>
   {% empty %}
   <article class="card"><p>Nenhuma sugestão.</p></article>
@@ -84,4 +126,18 @@
   <a class="btn secondary" href="{% url 'ui:niches_detail' run.parent_niche.pk %}">Voltar ao nicho</a>
   {% endif %}
 </p>
+
+<script>
+(function () {
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-toggle-details]");
+    if (!btn) return;
+    var id = btn.getAttribute("data-toggle-details");
+    var panel = document.getElementById(id);
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    btn.textContent = panel.hidden ? "Detalhes" : "Ocultar";
+  });
+})();
+</script>
 {% endblock %}

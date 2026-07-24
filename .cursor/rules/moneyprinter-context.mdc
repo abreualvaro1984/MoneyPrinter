@@ -8,9 +8,9 @@ alwaysApply: true
 - Workspace: `F:\Projetos\MoneyPrinter`. Responder em **português**.
 - Antes de implementar features de produto: ler `roadmap.md` e o agent em `agents/` da área tocada.
 - Skill do painel: `.cursor/skills/moneyprinter-panel/SKILL.md`.
-- **Áreas separadas** — não misturar Trends, Roteiros, Cortes, Create e Publish numa única ação/botão.
-- MVP atual: Trends (item 1) + Roteiros humanos/anti-IA Gemini (item 5) + Nichos com sinais YT + shell UI Django+HTMX.
-- Credenciais na UI `/apis/`: YouTube Data API key (banco + botão Testar) e keys de IA; `.env` só fallback.
+- **Áreas separadas** — não misturar Trends, Roteiros, Plano, Cortes, Create e Publish numa única ação/botão.
+- MVP atual: Trends (1) + Roteiros/anti-IA Gemini (5) + Plano de vídeo (9) + Nichos com sinais YT + shell Django+HTMX.
+- Credenciais na UI `/apis/`: YouTube Data API key (banco + Testar) e keys de IA; `.env` só fallback.
 - Motor de vídeo: `app/`. Painel: `panel/`. UI amigável: `panel/ui/`.
 - Ao concluir uma entrega listada no roadmap: marcar `[x]` em `roadmap.md`.
 - Não commitar segredos (`config.toml`, `panel/.env`, tokens OAuth).

@@ -17,6 +17,8 @@ from panel.ui.forms import (
     ScriptGenerateForm,
     SocialAccountForm,
     TrendSearchForm,
+    VideoPlanCreateForm,
+    VideoPlanEditForm,
     YoutubeDataApiKeyForm,
 )
 from panel.ui.models import (
@@ -24,15 +26,18 @@ from panel.ui.models import (
     NicheDiscoveryRun,
     ScriptDraft,
     TrendRun,
+    VideoPlan,
     YoutubeDataApiKey,
 )
 from panel.ui.services import niches_discover as niche_service
 from panel.ui.services import scripts as script_service
 from panel.ui.services import trends as trends_service
+from panel.ui.services import video_plans as plan_service
 from panel.ui.services.account_tutorials import ACCOUNT_TUTORIALS, tutorial_for
 from panel.ui.services import llm_test as llm_test_service
 from panel.ui.services.llm_runtime import resolve_credential
 from panel.ui.services.providers import PANEL_LLM_PRESETS
+from panel.ui.services.video_formats import get_video_format
 
 
 def _seo(title: str, description: str) -> dict:
@@ -269,6 +274,7 @@ def apis_test_live(request: HttpRequest) -> HttpResponse:
     result = llm_test_service.test_llm_draft(
         provider=request.POST.get("provider", ""),
         api_key=request.POST.get("api_key", ""),
+        model_name=request.POST.get("model_name", ""),
     )
     return render(
         request,
@@ -394,7 +400,11 @@ def niches_index(request: HttpRequest) -> HttpResponse:
     roots = Niche.objects.filter(parent__isnull=True, is_active=True).prefetch_related(
         "children"
     )
-    latest = NicheDiscoveryRun.objects.filter(kind=NicheDiscoveryRun.Kind.ROOT).first()
+    history = (
+        NicheDiscoveryRun.objects.select_related("llm_credential", "parent_niche")
+        .all()[:30]
+    )
+    latest = history[0] if history else None
     form = NicheDiscoverForm()
     return render(
         request,
@@ -406,6 +416,7 @@ def niches_index(request: HttpRequest) -> HttpResponse:
             ),
             "roots": roots,
             "latest": latest,
+            "history": history,
             "form": form,
         },
     )
@@ -423,10 +434,14 @@ def niches_discover(request: HttpRequest) -> HttpResponse:
     else:
         cred = resolve_credential(None)
         video_format = request.POST.get("video_format") or "dark"
-    run = niche_service.discover_root_niches(
-        llm_credential=cred,
-        video_format=video_format,
-    )
+    try:
+        run = niche_service.discover_root_niches(
+            llm_credential=cred,
+            video_format=video_format,
+        )
+    except Exception as exc:
+        messages.error(request, f"Falha na descoberta de nichos: {exc}")
+        return redirect("ui:nichos")
     messages.success(request, f"Descoberta #{run.pk}: {len(run.suggestions_json)} nichos sugeridos.")
     return redirect("ui:niches_discovery", pk=run.pk)
 
@@ -460,22 +475,54 @@ def niches_discovery(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def niches_add_suggestion(request: HttpRequest, pk: int) -> HttpResponse:
     run = get_object_or_404(NicheDiscoveryRun, pk=pk)
-    idx = request.POST.get("index")
+    idx_raw = request.POST.get("index")
     try:
-        item = (run.suggestions_json or [])[int(idx)]
+        idx = int(idx_raw)
+        item = (run.suggestions_json or [])[idx]
     except (TypeError, ValueError, IndexError):
+        if request.headers.get("HX-Request"):
+            return HttpResponse("Sugestão inválida.", status=400)
         messages.error(request, "Sugestão inválida.")
         return redirect("ui:niches_discovery", pk=pk)
+
+    # Já adicionado nesta descoberta → só devolve o estado
+    existing_id = item.get("added_niche_id")
+    if existing_id:
+        niche = Niche.objects.filter(pk=existing_id).first()
+        if niche and request.headers.get("HX-Request"):
+            return render(
+                request,
+                "ui/partials/niche_suggestion_actions.html",
+                {"niche": niche, "run": run, "index": idx},
+            )
+        if niche:
+            return redirect("ui:niches_discovery", pk=pk)
+
     niche = niche_service.add_suggestion_as_niche(
         name=item.get("name", ""),
         why=item.get("why", ""),
         keywords=item.get("keywords") or [],
         parent=run.parent_niche,
     )
+    suggestions = list(run.suggestions_json or [])
+    if 0 <= idx < len(suggestions):
+        suggestions[idx] = {
+            **suggestions[idx],
+            "added_niche_id": niche.pk,
+            "added_name": niche.name,
+        }
+        run.suggestions_json = suggestions
+        run.save(update_fields=["suggestions_json"])
+
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "ui/partials/niche_suggestion_actions.html",
+            {"niche": niche, "run": run, "index": idx},
+        )
+
     messages.success(request, f"Nicho salvo: {niche}")
-    if run.kind == NicheDiscoveryRun.Kind.ROOT:
-        return redirect("ui:niches_detail", pk=niche.pk)
-    return redirect("ui:niches_detail", pk=run.parent_niche_id or niche.pk)
+    return redirect("ui:niches_discovery", pk=pk)
 
 
 @login_required
@@ -512,11 +559,15 @@ def niches_discover_subs(request: HttpRequest, pk: int) -> HttpResponse:
         video_format = form.cleaned_data.get("video_format") or "dark"
     else:
         video_format = request.POST.get("video_format") or "dark"
-    run = niche_service.discover_subniches(
-        niche,
-        llm_credential=cred,
-        video_format=video_format,
-    )
+    try:
+        run = niche_service.discover_subniches(
+            niche,
+            llm_credential=cred,
+            video_format=video_format,
+        )
+    except Exception as exc:
+        messages.error(request, f"Falha na pesquisa de subnichos: {exc}")
+        return redirect("ui:niches_detail", pk=niche.pk)
     messages.success(request, f"{len(run.suggestions_json)} subnichos sugeridos.")
     return redirect("ui:niches_discovery", pk=run.pk)
 
@@ -601,3 +652,202 @@ def accounts_delete(request: HttpRequest, pk: int) -> HttpResponse:
     account.delete()
     messages.info(request, "Conta removida.")
     return redirect("ui:accounts_index")
+
+
+# --- Plano de vídeo ---
+
+
+def _assets_to_text(assets: list) -> str:
+    lines = []
+    for a in assets or []:
+        if not isinstance(a, dict):
+            continue
+        lines.append(
+            " | ".join(
+                [
+                    str(a.get("kind") or "broll"),
+                    str(a.get("query_or_brief") or ""),
+                    str(a.get("why") or ""),
+                ]
+            )
+        )
+    return "\n".join(lines)
+
+
+def _dubs_to_text(dubs: list) -> str:
+    lines = []
+    for d in dubs or []:
+        if not isinstance(d, dict):
+            continue
+        lines.append(
+            " | ".join(
+                [
+                    str(d.get("title") or ""),
+                    str(d.get("url") or ""),
+                    str(d.get("why") or ""),
+                ]
+            )
+        )
+    return "\n".join(lines)
+
+
+def _parse_assets_text(raw: str) -> list[dict]:
+    out = []
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        kind = parts[0] if parts else "broll"
+        brief = parts[1] if len(parts) > 1 else ""
+        why = parts[2] if len(parts) > 2 else ""
+        if not brief:
+            continue
+        out.append(
+            {
+                "kind": kind[:40],
+                "query_or_brief": brief[:240],
+                "why": why[:300],
+                "timing_hint": "",
+            }
+        )
+    return out
+
+
+def _parse_dubs_text(raw: str) -> list[dict]:
+    out = []
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        title = parts[0] if parts else ""
+        if not title:
+            continue
+        out.append(
+            {
+                "title": title[:200],
+                "url": (parts[1] if len(parts) > 1 else "")[:400],
+                "why": (parts[2] if len(parts) > 2 else "")[:300],
+                "channel": "",
+                "language": "en",
+                "search_query": "",
+            }
+        )
+    return out
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def plans_index(request: HttpRequest) -> HttpResponse:
+    form = VideoPlanCreateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        cred = form.cleaned_data.get("llm_credential") or resolve_credential(None)
+        try:
+            plan = plan_service.create_plan(
+                niche=form.cleaned_data["niche"],
+                topic=form.cleaned_data.get("topic") or "",
+                video_format=form.cleaned_data.get("video_format") or "dark",
+                llm_credential=cred,
+            )
+        except Exception as exc:
+            messages.error(request, f"Falha ao gerar plano: {exc}")
+            return redirect("ui:plans_index")
+        messages.success(request, f"Plano #{plan.pk} criado.")
+        return redirect("ui:plans_detail", pk=plan.pk)
+
+    plans = VideoPlan.objects.select_related("niche", "llm_credential").all()[:40]
+    return render(
+        request,
+        "ui/plans_index.html",
+        {
+            **_seo(
+                "Plano de vídeo — MoneyPrinter",
+                "A IA planeja roteiro, assets, voz e ideias de dublagem. Você edita.",
+            ),
+            "form": form,
+            "plans": plans,
+        },
+    )
+
+
+@login_required
+def plans_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    plan = get_object_or_404(
+        VideoPlan.objects.select_related("niche", "llm_credential", "script_draft"),
+        pk=pk,
+    )
+    fmt = get_video_format(plan.video_format or "dark")
+    form = VideoPlanEditForm(
+        initial={
+            "title": plan.title,
+            "topic": plan.topic,
+            "script_body": plan.script_body,
+            "voice_name": plan.voice_name,
+            "voice_notes": plan.voice_notes,
+            "assets_text": _assets_to_text(plan.assets_json or []),
+            "dub_text": _dubs_to_text(plan.dub_suggestions_json or []),
+            "status": plan.status,
+        }
+    )
+    return render(
+        request,
+        "ui/plans_detail.html",
+        {
+            **_seo(
+                f"Plano #{plan.pk} — MoneyPrinter",
+                plan.title or plan.topic or "Plano de vídeo",
+            ),
+            "plan": plan,
+            "form": form,
+            "video_format": fmt,
+            "summary": (plan.plan_json or {}).get("summary_pt") or "",
+        },
+    )
+
+
+@login_required
+@require_POST
+def plans_save(request: HttpRequest, pk: int) -> HttpResponse:
+    plan = get_object_or_404(VideoPlan, pk=pk)
+    form = VideoPlanEditForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Não foi possível salvar o plano.")
+        return redirect("ui:plans_detail", pk=pk)
+    plan.title = form.cleaned_data.get("title") or ""
+    plan.topic = form.cleaned_data.get("topic") or ""
+    plan.script_body = form.cleaned_data.get("script_body") or ""
+    plan.voice_name = form.cleaned_data.get("voice_name") or ""
+    plan.voice_notes = form.cleaned_data.get("voice_notes") or ""
+    plan.assets_json = _parse_assets_text(form.cleaned_data.get("assets_text") or "")
+    plan.dub_suggestions_json = _parse_dubs_text(
+        form.cleaned_data.get("dub_text") or ""
+    )
+    status = form.cleaned_data.get("status") or plan.status
+    if status in {VideoPlan.Status.DRAFT, VideoPlan.Status.READY}:
+        plan.status = status
+    plan.save()
+    messages.success(request, "Plano salvo.")
+    return redirect("ui:plans_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def plans_regenerate(request: HttpRequest, pk: int) -> HttpResponse:
+    plan = get_object_or_404(VideoPlan, pk=pk)
+    try:
+        new = plan_service.regenerate_plan(plan)
+    except Exception as exc:
+        messages.error(request, f"Falha ao regenerar: {exc}")
+        return redirect("ui:plans_detail", pk=pk)
+    messages.success(request, f"Novo plano #{new.pk} gerado.")
+    return redirect("ui:plans_detail", pk=new.pk)
+
+
+@login_required
+@require_POST
+def plans_to_script(request: HttpRequest, pk: int) -> HttpResponse:
+    plan = get_object_or_404(VideoPlan, pk=pk)
+    draft = plan_service.export_to_script_draft(plan)
+    messages.success(request, f"Roteiro #{draft.pk} criado a partir do plano.")
+    return redirect("ui:scripts_detail", pk=draft.pk)

@@ -194,6 +194,7 @@ class LlmApiTests(TestCase):
             reverse("ui:apis_create"),
             {
                 "provider": "moonshot",
+                "model_name": "kimi-k2.5",
                 "api_key": "sk-test-aaaa",
                 "is_default": True,
             },
@@ -203,6 +204,7 @@ class LlmApiTests(TestCase):
             reverse("ui:apis_create"),
             {
                 "provider": "openai",
+                "model_name": "gpt-4o-mini",
                 "api_key": "sk-test-bbbb",
                 "is_default": False,
             },
@@ -211,7 +213,28 @@ class LlmApiTests(TestCase):
         self.assertEqual(LlmCredential.objects.filter(is_default=True).count(), 1)
         moon = LlmCredential.objects.get(provider="moonshot")
         self.assertTrue(moon.base_url)
-        self.assertTrue(moon.model_name)
+        self.assertEqual(moon.model_name, "kimi-k2.5")
+        openai = LlmCredential.objects.get(provider="openai")
+        self.assertEqual(openai.model_name, "gpt-4o-mini")
+
+    def test_create_grok_credential(self):
+        response = self.client.post(
+            reverse("ui:apis_create"),
+            {
+                "provider": "grok",
+                "model_name": "grok-3-mini",
+                "api_key": "xai-test-key",
+                "is_default": False,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        grok = LlmCredential.objects.get(provider="grok")
+        self.assertEqual(grok.base_url, "https://api.x.ai/v1")
+        self.assertEqual(grok.model_name, "grok-3-mini")
+        create_page = self.client.get(reverse("ui:apis_create"))
+        self.assertContains(create_page, "Grok (xAI)")
+        self.assertContains(create_page, "id_model_name")
+        self.assertContains(create_page, "llm-models-catalog")
 
     def test_apis_test_button_saved_credential(self):
         cred = LlmCredential.objects.create(

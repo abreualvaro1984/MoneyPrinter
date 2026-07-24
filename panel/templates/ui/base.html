@@ -48,6 +48,7 @@
         <a href="{% url 'ui:nichos' %}" class="{% if 'niches' in request.resolver_match.url_name or request.resolver_match.url_name == 'nichos' %}active{% endif %}">Nichos</a>
         <a href="{% url 'ui:trends_index' %}" class="{% if 'trends' in request.resolver_match.url_name %}active{% endif %}">Trends</a>
         <a href="{% url 'ui:scripts_index' %}" class="{% if 'scripts' in request.resolver_match.url_name %}active{% endif %}">Roteiros</a>
+        <a href="{% url 'ui:plans_index' %}" class="{% if 'plans' in request.resolver_match.url_name %}active{% endif %}">Plano</a>
         <a href="{% url 'ui:apis_index' %}" class="{% if 'apis' in request.resolver_match.url_name %}active{% endif %}">APIs</a>
         <a href="{% url 'ui:contas' %}" class="{% if 'account' in request.resolver_match.url_name or request.resolver_match.url_name == 'contas' %}active{% endif %}">Contas</a>
         <a href="{% url 'ui:cortes' %}" class="{% if request.resolver_match.url_name == 'cortes' %}active{% endif %}">Cortes <span class="soon">em breve</span></a>
@@ -212,34 +213,28 @@
         activeForm = form;
         activeController = new AbortController();
         var formData = new FormData(form);
+        var fallbackUrl = form.action || window.location.href;
 
-        fetch(form.action || window.location.href, {
+        fetch(fallbackUrl, {
           method: (form.method || "POST").toUpperCase(),
           body: formData,
           credentials: "same-origin",
-          redirect: "manual",
+          // follow: evita opaqueredirect (status 0) que gerava tela branca no document.write
+          redirect: "follow",
           signal: activeController.signal,
           headers: { "X-Requested-With": "XMLHttpRequest" },
         })
           .then(function (response) {
             activeController = null;
-            // 302/303 etc.: navega uma vez (preserva messages do Django)
-            if (response.status >= 300 && response.status < 400) {
-              var loc = response.headers.get("Location");
-              window.location.assign(loc || form.action || window.location.href);
-              return null;
-            }
-            if (!response.ok && response.status >= 500) {
+            if (!response.ok) {
               unlockForm(form);
               hideAiWait();
               throw new Error("HTTP " + response.status);
             }
-            // 200: troca o HTML da página (sem segundo GET)
-            return response.text().then(function (html) {
-              document.open();
-              document.write(html);
-              document.close();
-            });
+            // Navega para a URL final (ex.: /nichos/descoberta/N/).
+            // Evita document.write — que quebrava em redirect opaco / HTML vazio.
+            var nextUrl = response.url || fallbackUrl;
+            window.location.assign(nextUrl);
           })
           .catch(function (err) {
             activeController = null;

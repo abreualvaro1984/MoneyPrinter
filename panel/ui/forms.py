@@ -11,6 +11,8 @@ from panel.ui.models import LlmCredential, YoutubeDataApiKey
 from panel.ui.services.providers import (
     apply_provider_defaults,
     get_panel_preset,
+    models_catalog_json,
+    panel_model_choices,
     panel_provider_choices,
 )
 
@@ -108,11 +110,16 @@ class YoutubeDataApiKeyForm(forms.ModelForm):
 
 
 class LlmCredentialForm(forms.ModelForm):
-    """Só provider + API key (+ padrão). URL e modelo vêm do sistema."""
+    """Provider + modelo + API key (+ padrão). URL base vem do sistema."""
+
+    model_name = forms.ChoiceField(
+        label="Modelo",
+        help_text="Lista muda conforme a IA. O teste usa o modelo selecionado.",
+    )
 
     class Meta:
         model = LlmCredential
-        fields = ("provider", "api_key", "is_default")
+        fields = ("provider", "model_name", "api_key", "is_default")
         widgets = {"api_key": forms.PasswordInput(render_value=True)}
 
     def __init__(self, *args, **kwargs):
@@ -124,17 +131,39 @@ class LlmCredentialForm(forms.ModelForm):
             help_text="Selecione a IA e abra o link abaixo para gerar/copiar a API key.",
         )
         self.fields["api_key"].label = "API key"
-        self.fields["api_key"].help_text = "Só a chave. URL e modelo são preenchidos automaticamente."
+        self.fields["api_key"].help_text = "Só a chave. A URL da API é preenchida automaticamente."
         self.fields["is_default"].label = "Usar como padrão nas pesquisas"
-        # URL inicial para o link dinâmico (primeira opção ou valor atual)
+
         current = self.initial.get("provider") or self.data.get("provider")
         if not current and self.instance and self.instance.pk:
             current = self.instance.provider
         if not current:
             current = panel_provider_choices()[0][0]
-        preset = get_panel_preset(str(current))
+        current = str(current)
+
+        extra_model = ""
+        if self.data.get("model_name"):
+            extra_model = str(self.data.get("model_name") or "").strip()
+        elif self.instance and self.instance.pk:
+            extra_model = (self.instance.model_name or "").strip()
+        elif self.initial.get("model_name"):
+            extra_model = str(self.initial.get("model_name") or "").strip()
+
+        self.fields["model_name"].choices = panel_model_choices(
+            current, extra=extra_model
+        )
+        if not self.is_bound:
+            if extra_model:
+                self.fields["model_name"].initial = extra_model
+            else:
+                choices = self.fields["model_name"].choices
+                if choices:
+                    self.fields["model_name"].initial = choices[0][0]
+
+        preset = get_panel_preset(current)
         self.key_url = preset.key_url if preset else ""
         self.key_howto = preset.howto if preset else ""
+        self.models_catalog_json = models_catalog_json()
 
     def save(self, commit=True):
         obj: LlmCredential = super().save(commit=False)
@@ -142,7 +171,9 @@ class LlmCredentialForm(forms.ModelForm):
         preset = get_panel_preset(provider)
         defaults = apply_provider_defaults(provider)
         obj.provider = provider
-        obj.model_name = defaults.get("model_name") or ""
+        obj.model_name = (self.cleaned_data.get("model_name") or "").strip() or (
+            defaults.get("model_name") or ""
+        )
         obj.base_url = defaults.get("base_url") or ""
         label = preset.label if preset else provider
         # Nome amigável automático (sem digitar)
@@ -240,3 +271,67 @@ class ScriptEditForm(forms.Form):
         label="CTA", widget=forms.Textarea(attrs={"rows": 2}), required=False
     )
     hashtags = forms.CharField(label="Hashtags", max_length=500, required=False)
+
+
+class VideoPlanCreateForm(forms.Form):
+    niche = forms.ModelChoiceField(
+        queryset=Niche.objects.filter(is_active=True),
+        label="Nicho",
+        empty_label="Selecione um nicho",
+    )
+    video_format = forms.ChoiceField(
+        label="Tipo de vídeo",
+        choices=(),
+        initial="dark",
+    )
+    topic = forms.CharField(
+        label="Tema (opcional)",
+        max_length=300,
+        required=False,
+        help_text="Se vazio, a IA inventa um tema alinhado ao nicho.",
+    )
+    llm_credential = forms.ModelChoiceField(
+        queryset=LlmCredential.objects.filter(is_active=True),
+        label="IA",
+        required=False,
+        empty_label="Padrão",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from panel.ui.services.video_formats import VIDEO_FORMAT_CHOICES
+
+        self.fields["video_format"].choices = VIDEO_FORMAT_CHOICES
+        self.fields["niche"].queryset = Niche.objects.filter(is_active=True)
+
+
+class VideoPlanEditForm(forms.Form):
+    title = forms.CharField(label="Título", max_length=200, required=False)
+    topic = forms.CharField(label="Tema", max_length=300, required=False)
+    script_body = forms.CharField(
+        label="Roteiro",
+        widget=forms.Textarea(attrs={"rows": 14}),
+        required=False,
+    )
+    voice_name = forms.CharField(label="Voz TTS", max_length=120, required=False)
+    voice_notes = forms.CharField(
+        label="Notas da voz",
+        widget=forms.Textarea(attrs={"rows": 2}),
+        required=False,
+    )
+    assets_text = forms.CharField(
+        label="Assets (um por linha: kind | brief | why)",
+        widget=forms.Textarea(attrs={"rows": 8}),
+        required=False,
+        help_text="Ex.: stock_video | chuva noturna | abertura",
+    )
+    dub_text = forms.CharField(
+        label="Dublagens (um por linha: título | url | por quê)",
+        widget=forms.Textarea(attrs={"rows": 6}),
+        required=False,
+    )
+    status = forms.ChoiceField(
+        label="Status",
+        choices=(("draft", "Rascunho"), ("ready", "Pronto")),
+        required=False,
+    )

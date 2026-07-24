@@ -8,8 +8,9 @@ Roadmap e agentes: [`../roadmap.md`](../roadmap.md) · [`../agents/`](../agents/
 
 | Módulo | Função |
 |--------|--------|
-| **UI** (`panel/ui`) | Tema escuro mobile-first: Trends + Roteiros + Nichos + APIs + Contas |
+| **UI** (`panel/ui`) | Tema escuro mobile-first: Trends + Roteiros + Plano + Nichos + APIs + Contas |
 | **Nichos** | Briefing, keywords, descoberta com sinais YouTube reais |
+| **Plano** (`/planos/`) | IA planeja roteiro, assets, voz e dublagem (editável; sem render) |
 | **APIs** (`/apis/`) | YouTube Data key (banco + Testar) e keys de IA (Testar) |
 | **Canais** | Canal YouTube OAuth (upload; separado da API key de pesquisa) |
 | **Contas sociais** | Várias contas YouTube / TikTok / IG / Facebook / Kwai |

@@ -1,0 +1,23 @@
+{% if niche %}
+<div class="actions suggestion-actions" style="margin-top:0.75rem;flex-wrap:wrap;">
+  <span class="badge ok">Adicionado</span>
+  <a class="btn secondary btn-compact" href="{% url 'ui:niches_detail' niche.pk %}">Detalhes</a>
+</div>
+{% else %}
+<div class="actions suggestion-actions" style="margin-top:0.75rem;flex-wrap:wrap;">
+  <button
+    type="button"
+    class="btn btn-compact"
+    hx-post="{% url 'ui:niches_add_suggestion' run.pk %}"
+    hx-vals='{"index": "{{ index }}"}'
+    hx-target="#suggestion-actions-{{ index }}"
+    hx-swap="innerHTML"
+    hx-disabled-elt="this"
+  >Adicionar</button>
+  <button
+    type="button"
+    class="btn secondary btn-compact"
+    data-toggle-details="suggestion-details-{{ index }}"
+  >Detalhes</button>
+</div>
+{% endif %}

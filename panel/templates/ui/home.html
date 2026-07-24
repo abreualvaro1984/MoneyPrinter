@@ -2,7 +2,7 @@
 {% block content %}
 <header class="page-head">
   <h1>Painel</h1>
-  <p>Áreas separadas: trends, roteiros, cortes, create e publicação. Nada de “um botão faz tudo”.</p>
+  <p>Áreas separadas: nichos, trends, roteiros, plano, cortes, create e publicação. Nada de “um botão faz tudo”.</p>
 </header>
 
 <section class="grid">
@@ -22,6 +22,11 @@
     <p class="stat">{{ script_count }}</p>
     <p class="muted">Rascunhos</p>
     <p><a class="btn" href="{% url 'ui:scripts_index' %}">Abrir Roteiros</a></p>
+  </article>
+  <article class="card">
+    <h2>Plano de vídeo</h2>
+    <p class="muted">Roteiro + assets + voz + dub (sem render)</p>
+    <p><a class="btn" href="{% url 'ui:plans_index' %}">Abrir Planos</a></p>
   </article>
 </section>
 {% endblock %}

@@ -37,4 +37,4 @@ Descobrir o que está **quente em views** para um nicho e devolver temas com rec
 - `panel/ui/services/niches_discover.py`
 - `panel/ui/services/llm_runtime.py`
 - `panel/channels/youtube.py`
-- UI: `/trends/`, `/nichos/`, `/apis/`
+- UI: `/trends/`, `/nichos/` (histórico de pesquisas + Add in-place), `/apis/`

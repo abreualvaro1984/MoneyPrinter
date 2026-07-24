@@ -35,6 +35,55 @@
 <p class="muted">Última descoberta: <a href="{% url 'ui:niches_discovery' latest.pk %}">#{{ latest.id }}</a></p>
 {% endif %}
 
+<section style="margin-bottom:1.5rem;">
+  <h2 style="margin-bottom:0.75rem;">Histórico de pesquisas</h2>
+  {% if history %}
+  <div class="table-wrap card" style="padding:0;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Quando</th>
+          <th>Tipo</th>
+          <th>Formato</th>
+          <th>IA</th>
+          <th>Sugestões</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td>{{ h.id }}</td>
+          <td>{{ h.created_at|date:"d/m/Y H:i" }}</td>
+          <td>
+            {% if h.kind == "sub" %}
+              Sub · {{ h.parent_niche|default:"—" }}
+            {% else %}
+              Nichos
+            {% endif %}
+          </td>
+          <td><code>{{ h.video_format|default:"—" }}</code></td>
+          <td>
+            {% if h.llm_credential %}
+              {{ h.llm_credential.name }}
+              <span class="muted">({{ h.llm_credential.provider }})</span>
+            {% else %}
+              <span class="muted">padrão</span>
+            {% endif %}
+          </td>
+          <td>{{ h.suggestions_json|length }}</td>
+          <td><a href="{% url 'ui:niches_discovery' h.pk %}">Abrir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nenhuma pesquisa ainda. Rode <strong>Pesquisar nichos em alta</strong> acima.</p>
+  {% endif %}
+</section>
+
 <section>
   <h2 style="margin-bottom:0.75rem;">Nichos cadastrados</h2>
   <div class="grid">

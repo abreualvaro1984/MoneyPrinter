@@ -54,7 +54,7 @@ class LlmCredential(models.Model):
     provider = models.CharField(
         "Provider",
         max_length=40,
-        help_text="moonshot, openai, gemini, deepseek, …",
+        help_text="moonshot, openai, gemini, grok, deepseek, …",
     )
     api_key = models.TextField("API key")
     base_url = models.CharField(max_length=300, blank=True)
@@ -226,3 +226,63 @@ class ScriptDraft(models.Model):
         if raw is not None:
             self.ai_raw = raw
         self.save(update_fields=["ai_score", "ai_status", "ai_raw", "updated_at"])
+
+
+class VideoPlan(models.Model):
+    """Plano de vídeo: roteiro + assets + voz + dublagem (não renderiza sozinho)."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Rascunho"
+        READY = "ready", "Pronto"
+
+    niche = models.ForeignKey(
+        Niche, on_delete=models.CASCADE, related_name="video_plans"
+    )
+    llm_credential = models.ForeignKey(
+        LlmCredential,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="video_plans",
+        verbose_name="IA usada",
+    )
+    video_format = models.CharField(
+        "Formato de vídeo",
+        max_length=20,
+        default="dark",
+        blank=True,
+    )
+    topic = models.CharField("Tema", max_length=300, blank=True)
+    title = models.CharField("Título", max_length=200, blank=True)
+    script_body = models.TextField("Roteiro", blank=True)
+    voice_name = models.CharField(
+        "Voz TTS",
+        max_length=120,
+        blank=True,
+        help_text="Ex.: pt-BR-FranciscaNeural-Female",
+    )
+    voice_notes = models.TextField("Notas da voz", blank=True)
+    assets_json = models.JSONField(default=list, blank=True)
+    dub_suggestions_json = models.JSONField(default=list, blank=True)
+    plan_json = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    script_draft = models.ForeignKey(
+        ScriptDraft,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="from_plans",
+        verbose_name="Roteiro vinculado",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Plano de vídeo"
+        verbose_name_plural = "Planos de vídeo"
+
+    def __str__(self) -> str:
+        return f"Plano #{self.pk} · {self.title or self.topic or self.niche}"
