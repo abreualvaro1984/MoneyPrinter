@@ -255,6 +255,7 @@ def search_videos(
     order: str = "viewCount",
     published_after: str | None = None,
     region_code: str = "BR",
+    relevance_language: str = "pt",
 ) -> list[dict]:
     """Search public YouTube videos. Uses API key if set, else first connected channel."""
     youtube = _youtube_client()
@@ -264,9 +265,10 @@ def search_videos(
         "type": "video",
         "maxResults": max_results,
         "order": order,
-        "relevanceLanguage": "pt",
         "regionCode": region_code,
     }
+    if relevance_language:
+        params["relevanceLanguage"] = relevance_language
     if published_after:
         params["publishedAfter"] = published_after
 

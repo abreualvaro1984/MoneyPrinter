@@ -92,10 +92,91 @@ class UiFlowTests(TestCase):
         self.assertContains(response, "Pesquisar trends")
 
     def test_script_generate_fallback(self):
-        draft = script_service.generate_script(self.niche, "Juros compostos em 60s")
+        with patch(
+            "panel.ui.services.scripts.gather_script_evidence",
+            return_value={
+                "published_after": "2026-04-01T00:00:00Z",
+                "cutoff_days": 90,
+                "videos": [
+                    {
+                        "title": "Juros em alta",
+                        "url": "https://youtu.be/x",
+                        "view_count": 900000,
+                        "description": "Selic e poupança",
+                        "published_at": "2026-06-01T00:00:00Z",
+                    }
+                ],
+                "articles": [
+                    {
+                        "title": "Matéria recente",
+                        "url": "https://example.com/a",
+                        "source": "Revista X",
+                        "lang": "pt-BR",
+                    }
+                ],
+                "errors": [],
+            },
+        ):
+            draft = script_service.generate_script(self.niche, "Juros compostos em 60s")
         self.assertTrue(draft.body)
         self.assertEqual(draft.niche_id, self.niche.pk)
         self.assertIn(draft.ai_status, dict(ScriptDraft.AiStatus.choices))
+        self.assertIn("research", draft.ai_raw)
+        self.assertTrue(draft.ai_raw["research"]["videos"])
+
+    def test_script_generate_with_credential(self):
+        cred = LlmCredential.objects.create(
+            name="OpenAI roteiro",
+            provider="openai",
+            api_key="sk-test",
+            model_name="gpt-4o-mini",
+            base_url="https://api.openai.com/v1",
+        )
+        with patch(
+            "panel.ui.services.scripts.gather_script_evidence",
+            return_value={
+                "published_after": "2026-04-01T00:00:00Z",
+                "cutoff_days": 90,
+                "videos": [],
+                "articles": [],
+                "errors": [],
+            },
+        ):
+            draft = script_service.generate_script(
+                self.niche, "Tema com IA", llm_credential=cred
+            )
+        self.assertEqual(draft.llm_credential_id, cred.pk)
+
+    def test_scripts_index_has_llm_field(self):
+        response = self.client.get(reverse("ui:scripts_index"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "IA para o roteiro")
+        self.assertContains(response, "Sugerir temas (IA)")
+
+    def test_scripts_suggest_topics_requires_niche(self):
+        response = self.client.post(reverse("ui:scripts_suggest_topics"), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Selecione um nicho")
+
+    def test_scripts_suggest_topics_ok(self):
+        with patch(
+            "panel.ui.services.scripts.suggest_topics",
+            return_value=[
+                "Tema A",
+                "Tema B",
+                "Tema C",
+                "Tema D",
+                "Tema E",
+            ],
+        ):
+            response = self.client.post(
+                reverse("ui:scripts_suggest_topics"),
+                {"niche": self.niche.pk},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tema A")
+        self.assertContains(response, "Tema E")
+        self.assertContains(response, "data-topic")
 
     def test_use_topic_creates_script(self):
         run = TrendRun.objects.create(
@@ -104,12 +185,121 @@ class UiFlowTests(TestCase):
             summary_pt="ok",
             topics_json=[{"title": "Tema X", "why": "y", "platform": "youtube"}],
         )
-        response = self.client.post(
-            reverse("ui:trends_use_topic", args=[run.pk]),
-            {"topic": "Tema X"},
+        cred = LlmCredential.objects.create(
+            name="Grok roteiro",
+            provider="grok",
+            api_key="xai-test",
+            model_name="grok-3-mini",
+            base_url="https://api.x.ai/v1",
         )
+        with patch(
+            "panel.ui.services.scripts.gather_script_evidence",
+            return_value={
+                "published_after": "2026-04-01T00:00:00Z",
+                "cutoff_days": 90,
+                "videos": [],
+                "articles": [],
+                "errors": [],
+            },
+        ):
+            response = self.client.post(
+                reverse("ui:trends_use_topic", args=[run.pk]),
+                {"topic": "Tema X", "llm_credential": cred.pk},
+            )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(ScriptDraft.objects.filter(topic="Tema X").exists())
+        draft = ScriptDraft.objects.get(topic="Tema X")
+        self.assertEqual(draft.llm_credential_id, cred.pk)
+
+    def test_humanize_rewrites_and_rescores(self):
+        draft = ScriptDraft.objects.create(
+            niche=self.niche,
+            topic="Tema",
+            title="T",
+            body="Neste vídeo vamos explorar o tema com clareza absoluta.",
+            target_duration_sec=60,
+            ai_raw={"research": {"videos": []}},
+        )
+        with (
+            patch(
+                "panel.ui.services.scripts._llm_humanize",
+                return_value="Olha, sobre o tema… te falo direto, sem enrolação.",
+            ),
+            patch(
+                "panel.ui.services.ai_detect.score_text",
+                return_value=ai_detect.ScoreResult(20.0, "pass", {"provider": "test"}),
+            ),
+        ):
+            out = script_service.humanize_for_anti_ai(draft)
+        self.assertIn("te falo direto", out.body)
+        self.assertEqual(out.ai_score, 20.0)
+        self.assertEqual(out.ai_status, "pass")
+        self.assertIn("research", out.ai_raw)
+
+    def test_create_duration_variant(self):
+        draft = ScriptDraft.objects.create(
+            niche=self.niche,
+            topic="Tema",
+            title="Curto",
+            body="Fato um. Fato dois. Aposta minha.",
+            target_duration_sec=30,
+            ai_raw={"research": {"videos": [{"title": "v1"}]}},
+        )
+        with (
+            patch(
+                "panel.ui.services.scripts._llm_resize_variant",
+                return_value={
+                    "title": "Longo",
+                    "body": "Fato um com mais contexto. Fato dois. Aposta minha.",
+                    "hooks": "Hook",
+                    "cta": "CTA",
+                    "hashtags": "#a",
+                },
+            ),
+            patch(
+                "panel.ui.services.ai_detect.score_text",
+                return_value=ai_detect.ScoreResult(30.0, "pass", {"provider": "test"}),
+            ),
+        ):
+            variant = script_service.create_duration_variant(
+                draft, target_duration_sec=480
+            )
+        self.assertNotEqual(variant.pk, draft.pk)
+        self.assertEqual(variant.target_duration_sec, 480)
+        self.assertIn("mais contexto", variant.body)
+        self.assertEqual(variant.ai_raw["research"]["variant_of"], draft.pk)
+
+    def test_gather_script_evidence_filters_old_trend_candidates(self):
+        run = TrendRun.objects.create(
+            niche=self.niche,
+            platforms=["youtube"],
+            candidates_json=[
+                {
+                    "video_id": "old1",
+                    "url": "https://youtu.be/old1",
+                    "title": "Velho",
+                    "published_at": "2020-01-01T00:00:00Z",
+                    "view_count": 99,
+                },
+                {
+                    "video_id": "new1",
+                    "url": "https://youtu.be/new1",
+                    "title": "Novo",
+                    "published_at": "2026-06-15T00:00:00Z",
+                    "view_count": 50,
+                    "description": "ok",
+                },
+            ],
+        )
+        with (
+            patch("panel.channels.youtube.search_videos", return_value=[]),
+            patch("panel.ui.services.scripts._google_news_rss", return_value=[]),
+        ):
+            evidence = script_service.gather_script_evidence(
+                self.niche, "Tema", trend_run=run
+            )
+        ids = {v.get("url") for v in evidence["videos"]}
+        self.assertIn("https://youtu.be/new1", ids)
+        self.assertNotIn("https://youtu.be/old1", ids)
 
 
 class RegisterTests(TestCase):

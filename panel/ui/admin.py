@@ -77,10 +77,11 @@ class TrendRunAdmin(admin.ModelAdmin):
 
 @admin.register(ScriptDraft)
 class ScriptDraftAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "niche", "ai_status", "ai_score", "version", "updated_at")
-    list_filter = ("ai_status", "niche")
+    list_display = ("id", "title", "niche", "llm_credential", "ai_status", "ai_score", "version", "updated_at")
+    list_filter = ("ai_status", "niche", "llm_credential")
     search_fields = ("title", "topic", "body")
     readonly_fields = ("created_at", "updated_at", "ai_raw")
+    raw_id_fields = ("llm_credential", "trend_run", "niche")
 
 
 @admin.register(VideoPlan)

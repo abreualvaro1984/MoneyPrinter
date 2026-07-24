@@ -106,6 +106,7 @@ def export_to_script_draft(plan: VideoPlan) -> ScriptDraft:
         hashtags=str((plan.plan_json or {}).get("hashtags") or "")[:500],
         version=1,
         notes=f"Exportado do Plano #{plan.pk}",
+        llm_credential=plan.llm_credential,
     )
     plan.script_draft = draft
     plan.save(update_fields=["script_draft", "updated_at"])
@@ -167,6 +168,7 @@ def _gather_plan_signals(niche: Niche, format_id: str) -> dict:
                 order="viewCount",
                 published_after=published_after,
                 region_code="US",
+                relevance_language="en",
             )
             for item in batch:
                 vid = item.get("video_id")

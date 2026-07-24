@@ -46,6 +46,7 @@ Contexto: [`agents/`](agents/) · skill painel: [`.cursor/skills/moneyprinter-pa
 Área **Roteiros** — gera/edita texto; **não** enfileira render sozinha.
 
 - [x] Gerar roteiro a partir de trend/tema + briefing do nicho (tom humano PT-BR)
+- [x] Pesquisa pré-roteiro: vídeos quentes + artigos ≤90 dias (PT/EN); easter eggs / apostas / claims para checar
 - [x] Editar / versionar rascunhos no painel
 - [x] Score anti-IA (Gemini / Google AI Studio; fallback GPTZero ou heurística local) exibido no card
 - [x] Regenerar se score indicar texto “muito IA”

@@ -258,7 +258,34 @@ class ScriptGenerateForm(forms.Form):
         label="Nicho",
     )
     topic = forms.CharField(label="Tema", max_length=300)
+    target_duration_sec = forms.TypedChoiceField(
+        label="Duração alvo do vídeo",
+        coerce=int,
+        choices=(
+            (30, "30s — Short rápido (descoberta)"),
+            (45, "45s — Short / Reels"),
+            (60, "60s — mín. TikTok Creator Rewards / Short sólido"),
+            (90, "90s — Short confortável"),
+            (180, "3 min — teto típico YouTube Shorts"),
+            (480, "8 min — mid-roll ads (vídeo longo YT)"),
+            (600, "10 min — vídeo longo"),
+        ),
+        initial=60,
+        help_text=(
+            "O roteiro mira esse tempo falado (± alguns segundos ok). "
+            "YouTube: Shorts até ~3 min (sem duração mínima p/ ads Shorts); "
+            "mid-roll em vídeo longo costuma exigir 8+ min. "
+            "TikTok Creator Rewards: em geral 60s+."
+        ),
+    )
     trend_run_id = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    llm_credential = forms.ModelChoiceField(
+        queryset=LlmCredential.objects.filter(is_active=True),
+        label="IA para o roteiro",
+        required=False,
+        empty_label="Padrão (credencial ★ / config.toml)",
+        help_text="Independente da IA usada na pesquisa de nicho/trends.",
+    )
 
 
 class ScriptEditForm(forms.Form):
@@ -271,6 +298,13 @@ class ScriptEditForm(forms.Form):
         label="CTA", widget=forms.Textarea(attrs={"rows": 2}), required=False
     )
     hashtags = forms.CharField(label="Hashtags", max_length=500, required=False)
+    target_duration_sec = forms.IntegerField(
+        label="Duração alvo (segundos)",
+        min_value=15,
+        max_value=3600,
+        required=False,
+        help_text="Só referência; use Regenerar para reescrever no novo tempo.",
+    )
 
 
 class VideoPlanCreateForm(forms.Form):

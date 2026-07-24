@@ -5,13 +5,16 @@
   <p>
     Nicho: <strong>{{ run.niche }}</strong>
     · Plataformas: {{ run.platforms|join:", " }}
-    {% if run.llm_credential %}· IA: {{ run.llm_credential.name }} ({{ run.llm_credential.provider }}){% endif %}
+    {% if run.llm_credential %}· IA da pesquisa: {{ run.llm_credential.name }} ({{ run.llm_credential.provider }}){% endif %}
   </p>
 </header>
 
 <article class="card" style="margin-bottom:1.25rem;">
   <h2>Resumo da IA</h2>
   <p>{{ run.summary_pt|default:"Sem resumo." }}</p>
+  <p class="muted" style="margin-bottom:0;">
+    Ao usar um tema, você pode escolher outra IA só para o roteiro (independente da pesquisa).
+  </p>
 </article>
 
 <section class="topic-list">
@@ -32,19 +35,39 @@
       <p class="muted">{{ t.why }}</p>
       {% if t.ref_url %}<p><a href="{{ t.ref_url }}" target="_blank" rel="noopener">Referência</a></p>{% endif %}
     </div>
-    {% if t.recommendation != "skip" %}
-    <form method="post" action="{% url 'ui:trends_use_topic' run.pk %}">
+    <form
+      method="post"
+      action="{% url 'ui:trends_use_topic' run.pk %}"
+      class="form-stack js-ai-wait"
+      style="min-width:12rem;"
+      data-wait-title="Gerando roteiro…"
+      data-wait-sub="A IA está escrevendo a partir deste tema."
+    >
       {% csrf_token %}
       <input type="hidden" name="topic" value="{{ t.title }}">
+      <div>
+        <label for="id_llm_{{ forloop.counter }}">IA do roteiro</label>
+        <select name="llm_credential" id="id_llm_{{ forloop.counter }}">
+          <option value="">Padrão</option>
+          {% for c in llm_credentials %}
+          <option value="{{ c.pk }}">{{ c.name }} ({{ c.provider }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="id_dur_{{ forloop.counter }}">Duração alvo</label>
+        <select name="target_duration_sec" id="id_dur_{{ forloop.counter }}">
+          {% for sec, label in duration_choices %}
+          <option value="{{ sec }}" {% if sec == 60 %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if t.recommendation != "skip" %}
       <button class="btn" type="submit">Usar este tema</button>
-    </form>
-    {% else %}
-    <form method="post" action="{% url 'ui:trends_use_topic' run.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="topic" value="{{ t.title }}">
+      {% else %}
       <button class="btn secondary" type="submit">Usar mesmo assim</button>
+      {% endif %}
     </form>
-    {% endif %}
   </article>
   {% empty %}
   <article class="card"><p>Nenhum tema retornado.</p></article>

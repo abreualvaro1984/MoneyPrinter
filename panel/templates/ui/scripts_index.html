@@ -6,13 +6,22 @@
 </header>
 
 <article class="card" style="margin-bottom:1.25rem;">
+  <h2 style="margin-top:0;">Duração e monetização (referência)</h2>
+  <ul class="muted" style="margin:0;padding-left:1.2rem;">
+    <li><strong>YouTube Shorts:</strong> formato vertical até ~3 min. Não há duração mínima para ads de Shorts no YPP; o ganho vem do pool do feed.</li>
+    <li><strong>YouTube vídeo longo:</strong> sem duração mínima para monetizar no YPP; mid-roll ads costumam exigir <strong>8+ minutos</strong>.</li>
+    <li><strong>TikTok Creator Rewards:</strong> em geral só conta vídeo com <strong>60s ou mais</strong> (confirme no app da sua região).</li>
+  </ul>
+</article>
+
+<article class="card" style="margin-bottom:1.25rem;">
   <h2>Gerar novo</h2>
   <form
     method="post"
     action="{% url 'ui:scripts_generate' %}"
     class="form-stack js-ai-wait"
     data-wait-title="Gerando roteiro…"
-    data-wait-sub="A IA está escrevendo o texto. Use Parar para cancelar."
+    data-wait-sub="Pesquisando vídeos/notícias recentes e escrevendo no tempo escolhido."
   >
     {% csrf_token %}
     <div>
@@ -20,8 +29,37 @@
       {{ form.niche }}
     </div>
     <div>
+      <label for="id_llm_credential">{{ form.llm_credential.label }}</label>
+      {{ form.llm_credential }}
+      {% if form.llm_credential.help_text %}
+      <p class="muted">{{ form.llm_credential.help_text }}</p>
+      {% endif %}
+    </div>
+    <div>
       <label for="id_topic">{{ form.topic.label }}</label>
       {{ form.topic }}
+      <p class="actions" style="margin-top:0.5rem;flex-wrap:wrap;">
+        <button
+          type="button"
+          class="btn secondary js-ai-wait-htmx"
+          hx-post="{% url 'ui:scripts_suggest_topics' %}"
+          hx-include="#id_niche,#id_llm_credential"
+          hx-target="#topic-suggestions"
+          hx-swap="innerHTML"
+          hx-indicator="#topic-suggest-busy"
+          data-wait-title="Sugerindo temas…"
+          data-wait-sub="A IA está montando 5 ideias para o nicho."
+        >Sugerir temas (IA)</button>
+        <span id="topic-suggest-busy" class="htmx-indicator muted">pensando…</span>
+      </p>
+      <div id="topic-suggestions" aria-live="polite"></div>
+    </div>
+    <div>
+      <label for="id_target_duration_sec">{{ form.target_duration_sec.label }}</label>
+      {{ form.target_duration_sec }}
+      {% if form.target_duration_sec.help_text %}
+      <p class="muted">{{ form.target_duration_sec.help_text }}</p>
+      {% endif %}
     </div>
     <button class="btn" type="submit">Gerar roteiro</button>
   </form>
@@ -29,16 +67,29 @@
 
 <section class="card">
   <h2>Rascunhos</h2>
+  <p class="muted" style="margin-top:0;">
+    <strong>Score anti-IA:</strong> 0–100 (quanto maior, mais “parece texto de IA”).
+    &lt;45 ok · 45–69 revisar · ≥70 regenerar/humanizar.
+  </p>
   <div class="table-wrap">
   <table class="table">
     <thead>
-      <tr><th>Título</th><th>Nicho</th><th>Anti-IA</th><th>Score</th><th></th></tr>
+      <tr><th>Título</th><th>Nicho</th><th>Duração</th><th>IA</th><th>Anti-IA</th><th>Score</th><th></th></tr>
     </thead>
     <tbody>
       {% for d in drafts %}
       <tr>
         <td>{{ d.title|default:d.topic }}</td>
         <td>{{ d.niche }}</td>
+        <td>~{{ d.target_duration_sec|default:60 }}s</td>
+        <td>
+          {% if d.llm_credential %}
+            {{ d.llm_credential.name }}
+            <span class="muted">({{ d.llm_credential.provider }})</span>
+          {% else %}
+            <span class="muted">padrão</span>
+          {% endif %}
+        </td>
         <td>
           {% if d.ai_status == "pass" %}<span class="badge ok">{{ d.get_ai_status_display }}</span>
           {% elif d.ai_status == "regen" %}<span class="badge danger">{{ d.get_ai_status_display }}</span>
@@ -49,7 +100,7 @@
         <td><a href="{% url 'ui:scripts_detail' d.pk %}">Abrir</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">Nenhum roteiro ainda.</td></tr>
+      <tr><td colspan="7">Nenhum roteiro ainda.</td></tr>
       {% endfor %}
     </tbody>
   </table>

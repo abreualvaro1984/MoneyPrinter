@@ -148,6 +148,10 @@ def trends_detail(request: HttpRequest, pk: int) -> HttpResponse:
             ),
             "run": run,
             "topics": run.topics_json or [],
+            "llm_credentials": LlmCredential.objects.filter(is_active=True),
+            "duration_choices": ScriptGenerateForm.base_fields[
+                "target_duration_sec"
+            ].choices,
         },
     )
 
@@ -291,14 +295,22 @@ def trends_use_topic(request: HttpRequest, pk: int) -> HttpResponse:
     if not topic:
         messages.error(request, "Tema vazio.")
         return redirect("ui:trends_detail", pk=pk)
-    draft = script_service.generate_script(run.niche, topic, trend_run=run)
+    cred_id = request.POST.get("llm_credential") or None
+    cred = resolve_credential(int(cred_id) if cred_id else None)
+    draft = script_service.generate_script(
+        run.niche,
+        topic,
+        trend_run=run,
+        llm_credential=cred,
+        target_duration_sec=int(request.POST.get("target_duration_sec") or 60),
+    )
     messages.success(request, f"Roteiro #{draft.pk} criado a partir do tema.")
     return redirect("ui:scripts_detail", pk=draft.pk)
 
 
 @login_required
 def scripts_index(request: HttpRequest) -> HttpResponse:
-    drafts = ScriptDraft.objects.select_related("niche")[:40]
+    drafts = ScriptDraft.objects.select_related("niche", "llm_credential")[:40]
     form = ScriptGenerateForm()
     return render(
         request,
@@ -315,6 +327,36 @@ def scripts_index(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
+def scripts_suggest_topics(request: HttpRequest) -> HttpResponse:
+    niche_raw = (request.POST.get("niche") or "").strip()
+    niche = None
+    if niche_raw.isdigit():
+        niche = Niche.objects.filter(pk=int(niche_raw), is_active=True).first()
+    if not niche:
+        return render(
+            request,
+            "ui/partials/script_topic_suggestions.html",
+            {"topics": [], "error": "Selecione um nicho antes de pedir sugestões."},
+        )
+    cred_raw = (request.POST.get("llm_credential") or "").strip()
+    cred = resolve_credential(int(cred_raw) if cred_raw.isdigit() else None)
+    try:
+        topics = script_service.suggest_topics(niche, llm_credential=cred, count=5)
+    except Exception as exc:
+        return render(
+            request,
+            "ui/partials/script_topic_suggestions.html",
+            {"topics": [], "error": f"Falha ao sugerir: {exc}"},
+        )
+    return render(
+        request,
+        "ui/partials/script_topic_suggestions.html",
+        {"topics": topics, "error": ""},
+    )
+
+
+@login_required
 @require_http_methods(["POST"])
 def scripts_generate(request: HttpRequest) -> HttpResponse:
     form = ScriptGenerateForm(request.POST)
@@ -325,10 +367,13 @@ def scripts_generate(request: HttpRequest) -> HttpResponse:
     tid = form.cleaned_data.get("trend_run_id")
     if tid:
         trend_run = TrendRun.objects.filter(pk=tid).first()
+    cred = form.cleaned_data.get("llm_credential") or resolve_credential(None)
     draft = script_service.generate_script(
         form.cleaned_data["niche"],
         form.cleaned_data["topic"],
         trend_run=trend_run,
+        llm_credential=cred,
+        target_duration_sec=form.cleaned_data.get("target_duration_sec") or 60,
     )
     messages.success(request, f"Roteiro #{draft.pk} gerado.")
     return redirect("ui:scripts_detail", pk=draft.pk)
@@ -337,7 +382,10 @@ def scripts_generate(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_http_methods(["GET", "POST"])
 def scripts_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    draft = get_object_or_404(ScriptDraft.objects.select_related("niche", "trend_run"), pk=pk)
+    draft = get_object_or_404(
+        ScriptDraft.objects.select_related("niche", "trend_run", "llm_credential"),
+        pk=pk,
+    )
     if request.method == "POST":
         form = ScriptEditForm(request.POST)
         if form.is_valid():
@@ -346,6 +394,8 @@ def scripts_detail(request: HttpRequest, pk: int) -> HttpResponse:
             draft.hooks = form.cleaned_data["hooks"]
             draft.cta = form.cleaned_data["cta"]
             draft.hashtags = form.cleaned_data["hashtags"]
+            if form.cleaned_data.get("target_duration_sec"):
+                draft.target_duration_sec = form.cleaned_data["target_duration_sec"]
             draft.save()
             script_service.rescore(draft)
             messages.success(request, "Roteiro salvo e reavaliado.")
@@ -358,6 +408,7 @@ def scripts_detail(request: HttpRequest, pk: int) -> HttpResponse:
                 "hooks": draft.hooks,
                 "cta": draft.cta,
                 "hashtags": draft.hashtags,
+                "target_duration_sec": draft.target_duration_sec or 60,
             }
         )
     return render(
@@ -370,6 +421,10 @@ def scripts_detail(request: HttpRequest, pk: int) -> HttpResponse:
             ),
             "draft": draft,
             "form": form,
+            "llm_credentials": LlmCredential.objects.filter(is_active=True),
+            "duration_choices": ScriptGenerateForm.base_fields[
+                "target_duration_sec"
+            ].choices,
         },
     )
 
@@ -378,8 +433,61 @@ def scripts_detail(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def scripts_regenerate(request: HttpRequest, pk: int) -> HttpResponse:
     draft = get_object_or_404(ScriptDraft, pk=pk)
-    new = script_service.regenerate_script(draft)
+    cred_id = request.POST.get("llm_credential") or None
+    if "llm_credential" in request.POST:
+        cred = resolve_credential(int(cred_id) if cred_id else None)
+    else:
+        cred = draft.llm_credential or resolve_credential(None)
+    duration_raw = request.POST.get("target_duration_sec")
+    duration = int(duration_raw) if duration_raw else None
+    new = script_service.regenerate_script(
+        draft, llm_credential=cred, target_duration_sec=duration
+    )
     messages.success(request, f"Nova versão #{new.pk} (v{new.version}) gerada.")
+    return redirect("ui:scripts_detail", pk=new.pk)
+
+
+@login_required
+@require_POST
+def scripts_humanize(request: HttpRequest, pk: int) -> HttpResponse:
+    draft = get_object_or_404(ScriptDraft, pk=pk)
+    cred_id = request.POST.get("llm_credential") or None
+    if "llm_credential" in request.POST:
+        cred = resolve_credential(int(cred_id) if cred_id else None)
+    else:
+        cred = draft.llm_credential or resolve_credential(None)
+    draft = script_service.humanize_for_anti_ai(draft, llm_credential=cred)
+    messages.success(
+        request,
+        f"Texto humanizado e reavaliado (score agora: "
+        f"{draft.ai_score if draft.ai_score is not None else '—'}).",
+    )
+    return redirect("ui:scripts_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def scripts_variant(request: HttpRequest, pk: int) -> HttpResponse:
+    draft = get_object_or_404(ScriptDraft, pk=pk)
+    try:
+        target = int(request.POST.get("target_duration_sec") or 0)
+    except (TypeError, ValueError):
+        target = 0
+    if target < 15:
+        messages.error(request, "Escolha uma duração válida para a variante.")
+        return redirect("ui:scripts_detail", pk=pk)
+    cred_id = request.POST.get("llm_credential") or None
+    if "llm_credential" in request.POST:
+        cred = resolve_credential(int(cred_id) if cred_id else None)
+    else:
+        cred = draft.llm_credential or resolve_credential(None)
+    new = script_service.create_duration_variant(
+        draft, target_duration_sec=target, llm_credential=cred
+    )
+    messages.success(
+        request,
+        f"Variante #{new.pk} (~{new.target_duration_sec}s) criada a partir do #{draft.pk}.",
+    )
     return redirect("ui:scripts_detail", pk=new.pk)
 
 

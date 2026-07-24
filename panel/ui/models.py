@@ -192,6 +192,19 @@ class ScriptDraft(models.Model):
         blank=True,
         related_name="scripts",
     )
+    llm_credential = models.ForeignKey(
+        "ui.LlmCredential",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="script_drafts",
+        verbose_name="IA usada",
+    )
+    target_duration_sec = models.PositiveIntegerField(
+        "Duração alvo (segundos)",
+        default=60,
+        help_text="Alvo falado do roteiro; o texto pode ficar uns segundos a mais ou a menos.",
+    )
     topic = models.CharField(max_length=300)
     title = models.CharField(max_length=200, blank=True)
     body = models.TextField(blank=True)
